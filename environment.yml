@@ -1,0 +1,13 @@
+name: geid
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - geopandas
+  - shapely
+  - rasterio
+  - folium
+  - ipykernel
+  - ipython
+  - pandas
+  - tqdm

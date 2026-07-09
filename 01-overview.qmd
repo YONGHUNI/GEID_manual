@@ -1,0 +1,102 @@
+# 개요
+
+GEID Python 자동화는 관심 지역의 Google Earth 이미지 패치를 반복적으로 다운로드하고, 실제 촬영일 기준으로 정리한 뒤, 분석 가능한 GeoTIFF 산출물을 만드는 작업 흐름이다.
+
+전체 흐름은 다음과 같다.
+
+```{=html}
+<div class="flow-diagram" aria-label="GEID Python 자동화 전체 흐름">
+  <div class="flow-shell">
+    <div class="flow-shell-title">main.py 실행 스크립트</div>
+    <div class="flow-shell-note">입력 형식, 날짜 전략, site 반복, merge 실행 여부를 결정한다.</div>
+
+    <div class="flow-row flow-row-main">
+      <div class="flow-step">입력 데이터 읽기</div>
+      <div class="flow-step">target_dates 생성</div>
+      <div class="flow-step">site별 반복</div>
+    </div>
+
+    <div class="flow-connector">
+      <span>각 site마다 호출</span>
+    </div>
+
+    <div class="flow-subprocess">
+      <div class="flow-subprocess-title">GEIDPipelineManager.download_roi() / core.py</div>
+      <div class="flow-row">
+        <div class="flow-step">ROI grid 분할</div>
+        <div class="flow-step">downloader.exe 실행</div>
+        <div class="flow-step">GEID 로그 파싱</div>
+        <div class="flow-step">실제 촬영일별 패치 분류</div>
+      </div>
+      <div class="flow-output">
+        <span class="flow-output-label">산출물</span>
+        <span>actual-date patch 폴더</span>
+        <span>extraction report</span>
+      </div>
+    </div>
+
+    <div class="flow-connector flow-connector-optional">
+      <span>필요한 경우 후처리</span>
+    </div>
+
+    <div class="flow-optional">
+      <div class="flow-optional-title">필요하면 main.py가 날짜별 merge를 명시적으로 트리거</div>
+      <div class="flow-row">
+        <div class="flow-step">merge_patches()</div>
+        <div class="flow-step">convert_to_geotiff()</div>
+      </div>
+      <div class="flow-output">
+        <span class="flow-output-label">산출물</span>
+        <span>날짜별 GeoTIFF</span>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+`main.py`는 전체 실행 흐름을 조립하는 상위 레이어다. `GEIDPipelineManager`는 `main.py` 안에서 호출되는 재사용 엔진이며, 이미 정리된 `roi_gdf`, `roi_name`, `output_sub_dir`, `target_dates`, `zoom`을 받아 실제 다운로드와 분류를 수행한다. `download_roi()`는 actual-date patch 폴더와 report를 만들고, 날짜별 GeoTIFF는 `main.py`가 merge를 명시적으로 트리거할 때 생성된다.
+
+## 문서의 기준
+
+이 매뉴얼은 `geid_pipeline/core.py`를 핵심 라이브러리로 보고, `main.py`를 사용자 실행 스크립트로 본다.
+
+따라서 설명은 다음 순서로 진행한다.
+
+- GEID command line 형식 확인
+- `from geid_pipeline import GEIDPipelineManager`로 core 모듈 사용 방식 이해
+- Jupyter에서 bbox 하나를 직접 실행
+- Jupyter 흐름을 `main.py` CLI flag로 옮기기
+- 미니멀 `example_project`로 실제 폴더 구조와 실행 결과 확인
+- 입력 데이터, 날짜 전략, merge 전략은 필요할 때 참고
+
+::: {.callout-tip}
+## 읽는 방향
+
+`core.py` 사용법을 먼저 이해한 뒤, Jupyter에서 작은 ROI를 직접 실행하고, 마지막에 그 흐름을 프로젝트별 `main.py`로 옮기는 순서가 가장 덜 헷갈린다.
+:::
+
+## 산출물의 기본 단위
+
+기본 산출물은 요청 날짜별이 아니라 실제 촬영일별로 생성된다.
+
+```text
+site_001_2021-05-11_Merged.tif
+site_001_2021-04-29_Merged.tif
+site_001_Current_Default_Merged.tif
+```
+
+이렇게 하는 이유는 Google Earth의 한 target date 요청 결과가 여러 실제 촬영일의 타일로 구성될 수 있기 때문이다.
+
+## 여러 main.py가 가능하다
+
+프로젝트마다 다운로드 상황은 다르다. 따라서 `main.py`는 하나의 정답 파일이 아니라, 프로젝트 목적에 맞게 구성하는 실행 스크립트로 보는 것이 좋다.
+
+예를 들어 다음과 같은 `main.py`가 모두 가능하다.
+
+- 좌표 bbox 하나만 받아 다운로드하는 최소 예제
+- GeoPackage의 여러 feature를 반복 처리하는 batch 실행 스크립트
+- current imagery만 빠르게 받는 스크립트
+- 사용자가 지정한 historical date list만 받는 스크립트
+- 실패한 site 목록만 다시 실행하는 스크립트
+
+공통점은 모두 `GEIDPipelineManager`를 import해서 사용한다는 점이다.

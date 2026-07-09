@@ -1,0 +1,113 @@
+# 입력 데이터
+
+## core.py가 실제로 받는 입력
+
+`core.py`는 GeoPackage, Shapefile, CSV 같은 파일 형식을 직접 알지 않는다.
+
+`GEIDPipelineManager.download_roi()`가 실제로 받는 값은 다음이다.
+
+::: {.callout-important}
+## core.py의 입력 단위
+
+`core.py`의 입력 단위는 파일이 아니라 이미 준비된 `GeoDataFrame`과 실행 인자다. GeoPackage, Shapefile, CSV를 어떻게 읽을지는 `main.py` 또는 Jupyter 코드에서 결정한다.
+:::
+
+`roi_gdf`
+: 다운로드할 ROI geometry가 들어 있는 `GeoDataFrame`이다.
+
+`roi_name`
+: site 또는 작업 식별자다. 출력 파일명과 task name에 사용된다.
+
+`output_sub_dir`
+: `output/` 아래에 결과를 저장할 하위 폴더다.
+
+`target_dates`
+: GEID에 요청할 날짜 목록이다.
+
+`zoom`
+: 다운로드 zoom level이다.
+
+따라서 파일을 어떻게 읽고, 어떤 컬럼을 site 이름이나 출력 폴더에 사용할지는 `main.py`에서 결정한다.
+
+## main.py에서 선택할 수 있는 입력 방식
+
+`main.py`는 프로젝트 상황에 따라 여러 입력 방식을 선택할 수 있다.
+
+- bbox 좌표를 직접 입력
+- 단일 polygon을 코드 안에서 생성
+- GeoPackage의 feature를 반복 처리
+- Shapefile을 읽어 처리
+- CSV의 좌표 컬럼을 bbox로 변환
+- 실패한 site 목록만 따로 읽어 재실행
+
+가장 작은 예제는 bbox 좌표를 직접 넣는 방식이다. 여러 site를 관리해야 하는 운영 단계에서는 GeoPackage나 CSV 같은 테이블형 입력이 더 편리하다.
+
+## 테이블형 batch 입력 예시
+
+여러 site를 반복 처리하려면 GeoPackage, Shapefile, CSV 같은 테이블형 입력을 사용할 수 있다.
+
+이때 핵심은 각 row가 하나의 다운로드 대상 또는 ROI를 나타내도록 만드는 것이다.
+
+최소한 다음 정보가 필요하다.
+
+`site_id`
+: site 또는 ROI 식별자다. `roi_name`으로 사용할 수 있다.
+
+`geometry`
+: 다운로드할 ROI polygon이다. CSV를 사용할 경우에는 geometry 대신 bbox 좌표 컬럼을 둘 수 있다.
+
+필요하면 프로젝트에 맞는 분류 컬럼을 추가할 수 있다.
+
+`group`
+: output 폴더를 나누기 위한 선택 컬럼이다. 예를 들어 지역, batch 이름, 프로젝트 이름, 자료 출처 등을 넣을 수 있다.
+
+예시:
+
+```text
+site_id      group        geometry
+site_001     batch_a      Polygon
+site_002     batch_a      Polygon
+site_003     batch_b      Polygon
+```
+
+이 컬럼 이름들은 정해진 규칙이 아니다. `core.py`의 필수 조건도 아니다.
+
+중요한 것은 `main.py`에서 각 row를 읽어 다음 값으로 변환하는 것이다.
+
+```text
+roi_gdf
+roi_name
+output_sub_dir
+```
+
+## 좌표계
+
+`core.py`는 입력 geometry를 `EPSG:4326`으로 변환해서 처리할 수 있다.
+
+그래도 운영 단계에서는 입력 자료를 미리 `EPSG:4326`으로 맞춰두는 것이 좋다. GEID에 전달되는 bounding box가 위경도 좌표이기 때문이다.
+
+## 출력 분류 예시
+
+batch 실행에서는 다음처럼 출력 폴더를 구성할 수 있다.
+
+```text
+output/{group}/{site_id}/
+```
+
+하지만 이것은 하나의 예시일 뿐이다.
+
+프로젝트에 따라 다음과 같은 구조도 가능하다.
+
+```text
+output/{project_name}/{site_id}/
+output/{batch_date}/{site_id}/
+output/{country}/{site_id}/
+```
+
+출력 구조는 `main.py`에서 `output_sub_dir`를 어떻게 만들지에 따라 달라진다.
+
+::: {.callout-note}
+## 권장 schema와 필수 조건은 다르다
+
+`site_id`, `group`, `geometry`는 batch 실행용 `main.py`를 단순하게 만들기 위한 예시 schema다. `core.py`가 요구하는 고정 컬럼명이 아니므로, 기존 자료의 컬럼명이 다르면 `main.py`에서 변환해 넘기면 된다.
+:::

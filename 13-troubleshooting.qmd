@@ -1,0 +1,103 @@
+# 문제 해결
+
+## downloader.exe를 찾지 못하는 경우
+
+오류:
+
+```text
+Executable not found: downloader.exe
+```
+
+해결:
+
+- `downloader.exe`가 PATH에 있는지 확인한다.
+- 또는 `GEIDPipelineManager` 초기화 시 절대경로를 넘긴다.
+
+```python
+pipeline = GEIDPipelineManager(
+    base_dir=str(base_dir),
+    geid_exe_path=r"C:\allmapsoft\geid\downloader.exe",
+)
+```
+
+## 입력 컬럼이 맞지 않는 경우
+
+`core.py`는 특정 컬럼명을 요구하지 않는다. 하지만 `main.py`가 GeoPackage나 CSV를 batch 입력으로 읽는다면, `main.py`가 기대하는 컬럼이 있어야 한다.
+
+::: {.callout-tip}
+## 컬럼 오류를 보는 방법
+
+컬럼 오류는 대개 `core.py` 문제가 아니라 `main.py`의 입력 변환 문제다. 입력 row에서 `roi_gdf`, `roi_name`, `output_sub_dir`를 만들 수 있는지 먼저 확인한다.
+:::
+
+예를 들어 이 매뉴얼의 미니멀 프로젝트는 다음 컬럼을 사용한다.
+
+```text
+site_id
+group
+geometry
+```
+
+다른 프로젝트에서는 컬럼명이 달라도 된다. 중요한 것은 `main.py`가 각 row를 다음 값으로 변환할 수 있어야 한다는 점이다.
+
+```text
+roi_gdf
+roi_name
+output_sub_dir
+```
+
+## JPG patch가 없다는 오류
+
+가능한 원인:
+
+- GEID 다운로드가 실패했다.
+- bbox가 너무 작거나 잘못되어 다운로드 대상 tile이 없다.
+- GEID 로그 형식이 예상과 다르다.
+- `_parse_log_and_relocate()`가 파일명을 매핑하지 못했다.
+- 이미 다른 위치로 이동된 폴더를 merge 대상으로 넘겼다.
+
+먼저 actual-date 폴더 안에 `.jpg`와 `.jgw`가 있는지 확인한다.
+
+```text
+output/{output_sub_dir}/patches_{site_id}/{actual_date}/
+```
+
+## JGW 파일이 없는 경우
+
+`merge_patches()`는 `.jpg`와 같은 위치에 있는 `.jgw` world file을 사용한다.
+
+`.jpg`만 있고 `.jgw`가 없다면 GEID GUI에서 다음 옵션이 켜져 있는지 확인한다.
+
+```text
+Options
+└── Create .jgw file for each jpg tile
+```
+
+옵션을 켠 뒤 해당 ROI를 다시 다운로드한다.
+
+## merge 결과가 생성되지 않는 경우
+
+`merge_patches()`는 자동 실행되지 않는다.
+
+`download_roi()` 뒤에 `main.py`가 actual-date 폴더를 순회하며 `merge_patches()`와 `convert_to_geotiff()`를 호출해야 한다.
+
+확인할 것:
+
+- `patch_root` 경로가 맞는가?
+- actual-date 폴더가 존재하는가?
+- 폴더 안에 `.jpg`와 `.jgw`가 함께 있는가?
+- 이미 같은 이름의 `_Merged.tif`가 있어 skip된 것은 아닌가?
+
+## Current_Default가 너무 많이 생기는 경우
+
+`Current_Default`는 GEID 로그에 날짜가 없는 tile을 의미한다.
+
+current imagery 요청에서는 자연스러울 수 있다. 다만 historical 요청에서도 많이 발생하면 GEID 로그 형식과 regex를 확인해야 한다.
+
+## Quarto가 PATH에서 실행되지 않는 경우
+
+절대경로로 실행한다.
+
+```powershell
+& "C:\Program Files\Quarto\bin\quarto.exe" render
+```

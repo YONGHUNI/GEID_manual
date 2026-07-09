@@ -1,0 +1,55 @@
+==================================================
+Task Execution Time : 2026-07-09 14:42:05
+Task Identifier     : manual_putney_wandsworth_current_0
+Requested Target    : current
+Actual Capture Date : Current_Default
+Zoom Level          : 18
+Bounding Box (4326) : (np.float64(-0.235), np.float64(51.45), np.float64(-0.17), np.float64(51.4825))
+Total Patches Found : 43
+--------------------------------------------------
+[Original Log Entries]
+T44 ges_65453_84273_18.jpg:  Ok
+T57 ges_65454_84273_18.jpg:  Ok
+T113 ges_65458_84277_18.jpg:  Ok
+T115 ges_65458_84279_18.jpg:  Ok
+T124 ges_65459_84275_18.jpg:  Ok
+T125 ges_65459_84276_18.jpg:  Ok
+T126 ges_65459_84277_18.jpg:  Ok
+T127 ges_65459_84278_18.jpg:  Ok
+T128 ges_65459_84279_18.jpg:  Ok
+T129 ges_65459_84280_18.jpg:  Ok
+T149 ges_65461_84274_18.jpg:  Ok
+T150 ges_65461_84275_18.jpg:  Ok
+T151 ges_65461_84276_18.jpg:  Ok
+T163 ges_65462_84275_18.jpg:  Ok
+T164 ges_65462_84276_18.jpg:  Ok
+T226 ges_65467_84273_18.jpg:  Ok
+T272 ges_65470_84280_18.jpg:  Ok
+T300 ges_65473_84269_18.jpg:  Ok
+T301 ges_65473_84270_18.jpg:  Ok
+T303 ges_65473_84272_18.jpg:  Ok
+T304 ges_65473_84273_18.jpg:  Ok
+T305 ges_65473_84274_18.jpg:  Ok
+T302 ges_65473_84271_18.jpg:  Ok
+T306 ges_65473_84275_18.jpg:  Ok
+T308 ges_65473_84277_18.jpg:  Ok
+T309 ges_65473_84278_18.jpg:  Ok
+T310 ges_65473_84279_18.jpg:  Ok
+T311 ges_65473_84280_18.jpg:  Ok
+T323 ges_65474_84279_18.jpg:  Ok
+T324 ges_65474_84280_18.jpg:  Ok
+T137 ges_65460_84275_18.jpg:  Ok
+T138 ges_65460_84276_18.jpg:  Ok
+T139 ges_65460_84277_18.jpg:  Ok
+T140 ges_65460_84278_18.jpg:  Ok
+T141 ges_65460_84279_18.jpg:  Ok
+T142 ges_65460_84280_18.jpg:  Ok
+T239 ges_65468_84273_18.jpg:  Ok
+T240 ges_65468_84274_18.jpg:  Ok
+T286 ges_65472_84268_18.jpg:  Ok
+T290 ges_65472_84272_18.jpg:  Ok
+T291 ges_65472_84273_18.jpg:  Ok
+T294 ges_65472_84276_18.jpg:  Ok
+T295 ges_65472_84277_18.jpg:  Ok
+
+

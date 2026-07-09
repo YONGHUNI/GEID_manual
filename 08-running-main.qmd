@@ -1,0 +1,151 @@
+# main.py 설계와 실행
+
+`main.py`는 하나의 고정된 파일이 아니라, 프로젝트 목적에 맞게 구성하는 실행 스크립트다.
+
+핵심은 `GEIDPipelineManager`를 import하고, 그 앞뒤의 운영 정책을 사용자가 정하는 것이다.
+
+::: {.callout-important}
+## main.py는 예시 구현이다
+
+이 매뉴얼의 `main.py`는 하나의 권장 패턴을 보여주는 예시다. 실제 프로젝트에서는 입력 형식, 컬럼명, 날짜 생성 방식, 출력 폴더 규칙, merge 실행 시점을 필요에 맞게 바꿔도 된다.
+:::
+
+```python
+from geid_pipeline import GEIDPipelineManager
+```
+
+## main.py의 기본 골격
+
+`main.py`는 보통 다음 순서로 구성한다.
+
+```python
+def main():
+    # 1. CLI 인자 또는 설정값 읽기
+    # 2. 입력 좌표, GeoPackage, CSV 등 읽기
+    # 3. target_dates 생성
+    # 4. GEIDPipelineManager 초기화
+    # 5. site별 download_roi() 호출
+    # 6. 필요하면 실제 촬영일별 patch 폴더를 merge
+    pass
+```
+
+`core.py`는 이 중 4-6단계에서 사용되는 엔진이고, 1-3단계는 프로젝트마다 달라지는 운영 로직이다.
+
+## 기본 실행
+
+Jupyter에서 최소 bbox 실험이 끝났다면, 같은 값을 `main.py` flag로 옮길 수 있다.
+
+단일 bbox historical imagery 실행 예시는 다음과 같다.
+
+```powershell
+mamba activate geid
+cd E:\workspace\Other_nations
+python main.py --bbox 2.2945,48.8580,2.2960,48.8590 --site-id manual_bbox --zoom 18 --date 2012-12-31 --output-sub-dir manual_examples/bbox
+```
+
+## 현재 영상만 받기
+
+```powershell
+python main.py --bbox 2.2945,48.8580,2.2960,48.8590 --site-id manual_bbox --zoom 18 --current --output-sub-dir manual_examples/bbox
+```
+
+GeoPackage batch 실행용 `main.py`를 만들었다면 다음처럼 확장할 수 있다.
+
+```powershell
+python main.py --gpkg data/shp/sites.gpkg --zoom 18 --start-year 2021 --end-date today
+```
+
+## 권장 CLI 인자
+
+`--gpkg`
+: GeoPackage batch 입력을 지원하는 `main.py`에서 사용할 수 있는 입력 경로다. Shapefile이나 CSV를 지원하도록 만들면 `--shp`, `--csv` 같은 인자를 추가할 수 있다.
+
+`--bbox`
+: 최소 예제나 단일 영역 실행에 사용할 bbox 좌표다. 예: `left,bottom,right,top` 형식.
+
+`--site-id`
+: 단일 bbox 실행에서 사용할 site 이름이다. `roi_name`으로 전달할 수 있다.
+
+`--zoom`
+: GEID zoom level이다.
+
+`--date`
+: 하나의 historical target date를 직접 지정할 때 사용한다.
+
+`--start_year`
+: historical target date 생성을 시작할 연도다.
+
+`--end_date`
+: historical target date 생성을 끝낼 날짜다. 기본값은 `today`로 둘 수 있다.
+
+`--current_only`
+: historical target date 생성을 건너뛰고 current imagery만 요청한다.
+
+`--output-sub-dir`
+: `output/` 아래에 결과를 저장할 하위 경로다.
+
+## main.py가 해야 할 일
+
+`main.py`는 다음 책임을 갖는다.
+
+- CLI 인자 파싱
+- target date 목록 생성
+- bbox, GeoPackage, CSV 등 입력 방식 선택
+- 입력을 `roi_gdf`, `roi_name`, `output_sub_dir`로 변환
+- `GEIDPipelineManager` 생성
+- `download_roi()` 호출
+- 날짜별 patch 폴더를 순회하며 merge 실행
+
+반대로 `core.py`는 CLI 인자를 직접 알 필요가 없다.
+
+::: {.callout-note}
+## 변환 지점
+
+어떤 입력 형식을 쓰든 `main.py`의 목표는 같다. 입력 row 또는 좌표를 `roi_gdf`, `roi_name`, `output_sub_dir`, `target_dates`, `zoom`으로 정리해서 `download_roi()`에 넘기면 된다.
+:::
+
+## main.py 설계 패턴
+
+### 패턴 1: 좌표 bbox 하나
+
+학습과 테스트에 가장 좋다.
+
+```text
+좌표 입력
+  → shapely.box()
+  → GeoDataFrame
+  → download_roi()
+```
+
+### 패턴 2: GeoPackage 여러 feature
+
+운영 batch 처리에 적합하다.
+
+```text
+GeoPackage 읽기
+  → row별 feature 분리
+  → site_id와 output_sub_dir 구성
+  → site별 download_roi()
+```
+
+### 패턴 3: current only
+
+최신 영상만 빠르게 확인할 때 사용한다.
+
+```python
+target_dates = ["current"]
+```
+
+### 패턴 4: historical date list
+
+사용자가 직접 지정한 날짜만 다운로드할 때 사용한다.
+
+```python
+target_dates = ["2021-05-15", "2022-05-15", "2023-05-15"]
+```
+
+### 패턴 5: 실패분 재실행
+
+실패한 `site_id` 목록만 따로 읽어 반복 실행할 수 있다.
+
+이 경우에도 core는 바뀌지 않고, `main.py`의 입력 목록만 달라진다.

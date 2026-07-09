@@ -1,0 +1,41 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "GEID Python 자동화 매뉴얼"
+  subtitle: "Google Earth 이미지 패치 수집, 실제 촬영일 기준 분류, 날짜별 GeoTIFF 생성"
+  author: "서용훈"
+  date: today
+  chapters:
+    - index.qmd
+    - 01-overview.qmd
+    - 02-environment.qmd
+    - 03-project-structure.qmd
+    - 04-geid-cli.qmd
+    - 09-core-pipeline.qmd
+    - 07-python-coordinate-example.qmd
+    - 08-running-main.qmd
+    - 14-minimal-example-project.qmd
+    - 05-input-data.qmd
+    - 06-date-strategy.qmd
+    - 10-merge-strategy.qmd
+    - 11-outputs-qc.qmd
+    - 13-troubleshooting.qmd
+    - appendix.qmd
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    code-copy: true
+    include-after-body: title-meta.html
+
+execute:
+  eval: false
+  warning: false
+  message: false

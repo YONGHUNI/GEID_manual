@@ -1,0 +1,129 @@
+# merge 전략
+
+## 기본 원칙
+
+기본 merge는 target date 기준이 아니라 **actual capture date 기준**으로 수행한다.
+
+GEID/Google Earth에서는 하나의 target date를 요청해도 실제 반환되는 tile의 촬영일이 여러 개로 나뉠 수 있다.
+
+예:
+
+```text
+target_date = 2014-02-15
+
+returned tiles:
+  tile A → 2014-02-13
+  tile B → 2014-02-13
+  tile C → 2013-07-19
+  tile D → 2020-04-11
+```
+
+이 tile들을 모두 `site_001_2014-02-15_Merged.tif`로 합치면, 파일명은 2014년 2월 15일처럼 보이지만 실제 내용은 여러 촬영일이 섞인 raster가 된다.
+
+따라서 기본 산출물은 다음처럼 actual date별로 만든다.
+
+```text
+site_001_2014-02-13_Merged.tif
+site_001_2013-07-19_Merged.tif
+site_001_2020-04-11_Merged.tif
+```
+
+## download와 merge는 분리된다
+
+`download_roi()`는 다운로드와 분류를 담당한다.
+
+```text
+download_roi()
+  → GEID downloader.exe 실행
+  → GEID log 읽기
+  → jpg/jgw patch를 actual date별 폴더로 이동
+```
+
+`merge_patches()`는 자동으로 실행되지 않는다.
+
+```text
+merge_patches()
+  → 전달받은 한 폴더 안의 jpg/jgw patch를 하나의 raster array로 병합
+```
+
+즉 날짜별 GeoTIFF를 만들려면 `main.py`에서 actual-date 폴더를 순회하며 merge를 명시적으로 트리거해야 한다.
+
+::: {.callout-warning}
+## merge는 명시적으로 실행한다
+
+`download_roi()`는 patch 다운로드와 실제 촬영일별 분류까지 담당한다. 날짜별 GeoTIFF가 필요하면 `main.py`에서 actual-date 폴더를 하나씩 넘겨 `merge_patches()`와 `convert_to_geotiff()`를 호출해야 한다.
+:::
+
+## 날짜별 merge 예시
+
+다운로드 후 patch 구조가 다음과 같다고 하자.
+
+```text
+output/demo/site_001/
+└── patches_site_001/
+    ├── 2014-02-13/
+    │   ├── *.jpg
+    │   └── *.jgw
+    ├── 2013-07-19/
+    │   ├── *.jpg
+    │   └── *.jgw
+    └── Current_Default/
+        ├── *.jpg
+        └── *.jgw
+```
+
+`main.py`는 각 actual-date 폴더를 하나씩 merge한다.
+
+```python
+def merge_actual_date_folders(pipeline, patch_root, output_root, site_id):
+    for folder_path in sorted(p for p in patch_root.iterdir() if p.is_dir()):
+        actual_date = folder_path.name
+        output_tif = output_root / f"{site_id}_{actual_date}_Merged.tif"
+
+        if output_tif.exists():
+            continue
+
+        image_array, meta = pipeline.merge_patches(
+            target_folder=str(folder_path),
+            output_filename=f"temp_{actual_date}",
+        )
+
+        pipeline.convert_to_geotiff(
+            image_array=image_array,
+            meta=meta,
+            output_path=str(output_tif),
+        )
+```
+
+결과:
+
+```text
+output/demo/site_001/
+├── site_001_2014-02-13_Merged.tif
+├── site_001_2013-07-19_Merged.tif
+└── site_001_Current_Default_Merged.tif
+```
+
+## main.py와 core.py의 역할
+
+역할은 다음처럼 나누는 것이 좋다.
+
+```text
+core.py
+  → merge_patches() 제공
+  → convert_to_geotiff() 제공
+  → 어떤 폴더를 merge할지는 결정하지 않음
+
+main.py
+  → download_roi() 호출
+  → actual-date 폴더 순회
+  → merge_patches() 호출 시점 결정
+  → 이미 생성된 _Merged.tif는 skip할지 결정
+```
+
+이렇게 나누면 `main.py`에서 프로젝트별 운영 방식을 선택하기 쉽다.
+
+- 다운로드 직후 날짜별 merge 실행
+- patch만 저장하고 나중에 merge 실행
+- 특정 actual date 폴더만 merge
+- 이미 `_Merged.tif`가 있으면 skip

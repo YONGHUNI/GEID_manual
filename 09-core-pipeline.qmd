@@ -1,0 +1,124 @@
+# geid_pipeline 모듈과 GEIDPipelineManager
+
+`core.py`는 GEID 자동화의 재사용 가능한 핵심 로직을 제공한다.
+
+사용자는 보통 `main.py`에서 다음처럼 import한다.
+
+```python
+from geid_pipeline import GEIDPipelineManager
+```
+
+`core.py`는 독립 실행용 CLI 스크립트가 아니다. `argparse`로 인자를 받거나, 입력 파일을 직접 정하거나, 출력 폴더 정책을 결정하지 않는다.
+
+그런 결정은 `main.py`에서 한다.
+
+::: {.callout-important}
+## core.py가 모르는 것
+
+`core.py`는 사용자가 GeoPackage를 쓰는지, Shapefile을 쓰는지, CSV를 쓰는지 알 필요가 없다. 또한 `--gpkg`, `--bbox`, `--start-year` 같은 CLI flag도 알지 않는다. `core.py`는 `download_roi()`에 전달된 값으로 GEID 실행, 로그 파싱, 실제 촬영일별 patch 정리를 수행한다.
+:::
+
+이 장의 목적은 `main.py`를 만들기 전에, 먼저 import해오는 모듈이 어떤 책임을 갖는지 이해하는 것이다.
+
+## 클래스 초기화
+
+예시:
+
+```python
+pipeline = GEIDPipelineManager(
+    base_dir=str(base_dir),
+    geid_exe_path="downloader.exe",
+    grid_chunk_size=16,
+    fill_ratio_threshold=0.6,
+)
+```
+
+`base_dir`
+: 입력과 출력의 기준 프로젝트 경로다.
+
+`geid_exe_path`
+: GEID 실행 파일 경로 또는 PATH에 등록된 실행 파일 이름이다.
+
+`grid_chunk_size`
+: ROI를 grid로 쪼갤 때 한 chunk에 포함할 tile 단위 크기다.
+
+`fill_ratio_threshold`
+: ROI polygon이 bounding box를 얼마나 채우는지 판단하는 기준이다.
+
+이 인자들은 pipeline 객체 자체의 실행 환경과 공간 처리 방식을 정한다.
+
+다시 말해, 여기에는 특정 site 이름이나 target date 목록을 넣지 않는다. 그런 값들은 `download_roi()`를 호출할 때 넘긴다.
+
+## download_roi() 인자
+
+`download_roi()`는 실제로 하나의 ROI 또는 site를 다운로드할 때 호출한다.
+
+예시:
+
+```python
+pipeline.download_roi(
+    roi_gdf=roi_gdf,
+    roi_name="test_bbox",
+    output_sub_dir="manual_examples/bbox",
+    target_dates=["2012-12-31", "current"],
+    zoom=12,
+)
+```
+
+`roi_gdf`
+: 다운로드할 geometry를 담은 `GeoDataFrame`이다. 좌표 bbox를 `shapely.box()`로 만든 경우에도 최종적으로는 `GeoDataFrame`으로 감싸서 넘긴다.
+
+`roi_name`
+: 현재 다운로드 작업의 site 이름 또는 식별자다. task name과 산출물 파일명에 사용된다.
+
+`output_sub_dir`
+: `base_dir/output/` 아래에 결과를 저장할 하위 경로다. 예를 들어 `"manual_examples/bbox"`를 넘기면 결과는 `output/manual_examples/bbox/` 아래에 정리된다.
+
+`target_dates`
+: GEID에 요청할 날짜 문자열 리스트다. `main.py`의 `generate_target_dates()`가 만든 리스트를 넘기거나, 직접 `["2012-12-31"]`, `["current"]`처럼 지정할 수 있다.
+
+`zoom`
+: GEID CLI의 zoom from/to에 들어갈 zoom level이다. 현재 core 구현은 하나의 zoom 값을 받아 `zoom from`과 `zoom to`에 같은 값을 넣는 방식이다.
+
+## 인자 흐름 요약
+
+`main.py`에서 사용자가 정한 값은 다음 흐름으로 core에 전달된다.
+
+```text
+CLI 인자 또는 설정값
+  → generate_target_dates()
+  → target_dates 리스트
+  → pipeline.download_roi(..., target_dates=target_dates, zoom=args.zoom)
+  → downloader.exe task.geid zoom zoom left right top bottom save_path [target_date]
+```
+
+## 주요 메서드
+
+`download_roi()`
+: 하나의 ROI/site에 대해 여러 target date와 여러 bbox chunk를 순회하며 GEID를 실행한다.
+
+`_parse_log_and_relocate()`
+: GEID 로그를 읽고, 실제 촬영일별로 `.jpg`와 `.jgw`를 이동한다.
+
+`merge_patches()`
+: 전달받은 폴더 안의 `.jpg` 패치를 하나의 array로 병합한다.
+
+`convert_to_geotiff()`
+: 병합된 array와 metadata를 GeoTIFF로 저장한다.
+
+## core.py에 CLI가 없는 이유
+
+`core.py`는 라이브러리처럼 동작해야 한다. 그래야 다른 실행 스크립트나 테스트 코드에서도 같은 클래스를 재사용할 수 있다.
+
+CLI 인자, 입력 파일명, 실행 모드 같은 운영 정책은 `main.py`가 담당하는 편이 좋다.
+
+## main.py와의 관계
+
+`main.py`는 다음 질문에 답한다.
+
+- 어떤 site를 다운로드할 것인가?
+- 어떤 날짜를 요청할 것인가?
+- 출력 폴더를 어떻게 나눌 것인가?
+- 다운로드 후 merge를 바로 할 것인가?
+
+`core.py`는 그 결정이 내려진 뒤 실제 작업을 수행한다.

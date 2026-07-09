@@ -1,0 +1,62 @@
+# 프로젝트 구조
+
+권장 프로젝트 구조는 다음과 같다.
+
+```text
+project/
+├── environment.yml
+├── main.py
+├── geid_pipeline/
+│   ├── __init__.py
+│   └── core.py
+├── data/
+│   └── shp/
+│       └── scenes4acquisition.gpkg
+└── output/
+```
+
+## 파일별 책임
+
+`environment.yml`
+: GEID 자동화와 매뉴얼 예제 실행에 필요한 Python 패키지를 정의한다.
+
+`main.py`
+: 사용자가 실행하는 진입점이다. 각 프로젝트의 상황에 맞게 입력 방식, 날짜 전략, 출력 폴더, merge 시점을 결정한다.
+
+`geid_pipeline/core.py`
+: 실제 GEID 실행, 공간 분할, 로그 파싱, 날짜별 패치 분류, merge 함수 등을 제공한다. 단, CLI 인자를 직접 처리하지 않는다.
+
+`output/`
+: 다운로드된 패치, 날짜별 report, 날짜별 merged GeoTIFF가 저장되는 위치다.
+
+## main.py는 프로젝트마다 달라질 수 있다
+
+`main.py`는 사례에 따라 달라지는 부분을 담는다.
+
+좌표 하나만 테스트할 때는 입력 좌표를 코드에 직접 둘 수 있다.
+
+여러 site를 반복 처리할 때는 GeoPackage나 CSV를 읽어 site별로 `download_roi()`를 호출할 수 있다.
+
+운영 환경에서는 CLI 인자를 받도록 구성하는 편이 좋다.
+
+```text
+python main.py --gpkg data/shp/scenes4acquisition.gpkg --zoom 18 --start_year 2021
+```
+
+## 출력 폴더 예시
+
+```text
+output/
+└── demo_group/
+    ├── patches_site_001/
+    │   ├── 2021-05-11/
+    │   │   ├── *.jpg
+    │   │   ├── *.jgw
+    │   │   └── site_001_extraction_report.txt
+    │   └── Current_Default/
+    │       ├── *.jpg
+    │       ├── *.jgw
+    │       └── site_001_extraction_report.txt
+    ├── site_001_2021-05-11_Merged.tif
+    └── site_001_Current_Default_Merged.tif
+```

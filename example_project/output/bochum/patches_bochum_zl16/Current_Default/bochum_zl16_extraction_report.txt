@@ -1,0 +1,18 @@
+==================================================
+Task Execution Time : 2026-07-09 16:00:14
+Task Identifier     : bochum_zl16_current_0
+Requested Target    : current
+Actual Capture Date : Current_Default
+Zoom Level          : 16
+Bounding Box (4326) : (np.float64(7.185), np.float64(51.465), np.float64(7.245), np.float64(51.505))
+Total Patches Found : 6
+--------------------------------------------------
+[Original Log Entries]
+T3 ges_17037_21071_16.jpg:  Ok
+T8 ges_17038_21071_16.jpg:  Ok
+T13 ges_17039_21071_16.jpg:  Ok
+T14 ges_17039_21072_16.jpg:  Ok
+T19 ges_17040_21072_16.jpg:  Ok
+T24 ges_17041_21072_16.jpg:  Ok
+
+

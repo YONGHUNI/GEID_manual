@@ -1,0 +1,46 @@
+# 부록: 함수와 클래스 요약
+
+## main.py
+
+이 절의 함수들은 고정 API가 아니라, 이 매뉴얼에서 제안하는 `main.py` 설계 패턴이다. 프로젝트에 따라 함수 이름, CLI 인자, 입력 schema, 출력 폴더 규칙은 바뀔 수 있다.
+
+::: {.callout-note}
+## main.py는 프로젝트별 운전석
+
+`main.py`의 역할은 사용자의 작업 목적에 맞게 입력과 실행 정책을 정리해 `GEIDPipelineManager`에 넘기는 것이다. 따라서 여기의 함수 목록은 “반드시 이렇게 구현해야 한다”는 규칙이 아니라, 재사용하기 쉬운 구성 예시로 보면 된다.
+:::
+
+`generate_target_dates(start_year, end_date_str, target_months, day=15)`
+: target date 목록을 만드는 helper 함수 예시다. 리턴값은 `["2021-05-15", "2021-08-15", "current"]` 같은 문자열 리스트이며, `download_roi(target_dates=...)`로 전달된다. 프로젝트에 따라 월 목록, 종료일 처리, current 포함 여부는 다르게 구현할 수 있다.
+
+`main()`
+: 사용자 실행 진입점의 예시다. CLI 인자 또는 설정값을 읽고, 입력 자료를 `roi_gdf`, `roi_name`, `output_sub_dir`로 변환하고, `GEIDPipelineManager`를 생성해 site별 다운로드를 실행한다. 필요한 경우 actual-date 폴더를 순회하며 날짜별 merge도 트리거한다.
+
+`merge_actual_date_folders(pipeline, patch_root, output_root, site_id)`
+: actual-date 폴더를 하나씩 돌면서 `merge_patches()`와 `convert_to_geotiff()`를 호출하는 main-side helper 함수 예시다. 이 함수는 core의 필수 함수가 아니라 운영 스크립트에서 정하는 merge 정책이다.
+
+## geid_pipeline/core.py
+
+`GEIDPipelineManager`
+: GEID 자동화의 핵심 클래스다.
+
+`_calculate_fill_ratio(gdf)`
+: ROI polygon이 bounding box를 얼마나 채우는지 계산한다.
+
+`_generate_dynamic_grid(bounds, zoom)`
+: ROI를 GEID 요청에 적합한 grid chunk로 나눈다.
+
+`_wait_for_completion(temp_dir, task_name, process, timeout_sec=3600)`
+: GEID 외부 프로세스가 끝날 때까지 기다린다.
+
+`_parse_log_and_relocate(...)`
+: GEID 로그를 읽어 파일명과 실제 촬영일을 매핑하고, `.jpg/.jgw`를 실제 촬영일 폴더로 이동한다.
+
+`download_roi(roi_gdf, roi_name, output_sub_dir, target_dates, zoom)`
+: 하나의 ROI/site에 대해 여러 target date와 bbox chunk를 순회하며 GEID를 실행한다. 이 메서드는 patch 분류까지 수행하지만, 날짜별 GeoTIFF merge를 자동 실행하지는 않는다.
+
+`merge_patches(target_folder, output_filename)`
+: 전달받은 폴더 안의 `.jpg` 파일을 하나의 raster array로 merge한다. 날짜별 merge가 되려면 `main.py`가 actual-date 폴더를 하나씩 넘겨야 한다.
+
+`convert_to_geotiff(image_array, meta, output_path)`
+: merge 결과를 GeoTIFF로 저장한다.

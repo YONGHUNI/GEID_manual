@@ -1,0 +1,225 @@
+# 매뉴얼 안의 미니멀 실행 프로젝트
+
+이 장은 매뉴얼 폴더 안에 들어 있는 실제 실행 가능한 미니멀 프로젝트를 보여준다.
+
+프로젝트 위치:
+
+```text
+example_project/
+```
+
+구조:
+
+```text
+example_project/
+├── main.py
+├── geid_pipeline/
+│   ├── __init__.py
+│   └── core.py
+├── data/
+│   └── shp/
+│       └── bochum_minimal.gpkg
+└── output/
+```
+
+실행 환경은 매뉴얼 루트의 `environment.yml`을 사용한다. `example_project`는 미니멀 실행에 필요한 `main.py`, `geid_pipeline`, 입력 데이터, 출력 폴더만 담는다.
+
+## Bochum 미니멀 GeoPackage
+
+예제 입력 파일은 다음 위치에 있다.
+
+```text
+example_project/data/shp/bochum_minimal.gpkg
+```
+
+이 GeoPackage에는 Bochum 시 중심부를 포함하는 작은 polygon 하나가 들어 있다.
+
+```text
+site_id      group     geometry
+bochum_zl16  bochum    Polygon
+```
+
+이 예제의 목적은 대량 처리가 아니라, `main.py`가 GeoPackage를 읽고 `GEIDPipelineManager`를 호출하는 전체 흐름을 확인하는 것이다.
+
+입력 GeoPackage의 범위는 아래 동적 지도에서 확인할 수 있다.
+
+```{python}
+#| eval: true
+#| echo: true
+import geopandas as gpd
+import folium
+from pathlib import Path
+from IPython.display import HTML, display
+
+gpkg_path = Path("example_project/data/shp/bochum_minimal.gpkg")
+bochum_gdf = gpd.read_file(gpkg_path).to_crs(epsg=4326)
+
+minx, miny, maxx, maxy = bochum_gdf.total_bounds
+m_input = folium.Map(
+    location=[(miny + maxy) / 2, (minx + maxx) / 2],
+    zoom_start=13,
+    tiles="OpenStreetMap",
+)
+
+folium.GeoJson(
+    bochum_gdf,
+    name="bochum_minimal.gpkg",
+    style_function=lambda feature: {
+        "color": "#ffcc00",
+        "weight": 3,
+        "fillColor": "#ffcc00",
+        "fillOpacity": 0.15,
+    },
+    tooltip=folium.GeoJsonTooltip(fields=["site_id", "group"]),
+).add_to(m_input)
+
+folium.LayerControl(collapsed=False).add_to(m_input)
+m_input.fit_bounds([[miny, minx], [maxy, maxx]])
+
+input_map_path = Path("example_project/data/shp/bochum_minimal_input_map.html")
+m_input.save(input_map_path)
+display(HTML(f'<iframe src="../{input_map_path.as_posix()}" width="100%" height="520" style="border:1px solid #ddd;"></iframe>'))
+```
+
+## main.py 실행
+
+PowerShell에서는 다음처럼 실행한다.
+
+```powershell
+mamba activate geid
+cd E:\workspace\geid_manual\example_project
+python main.py --gpkg data\shp\bochum_minimal.gpkg --zoom 16 --current --geid-exe C:\allmapsoft\geid\downloader.exe
+```
+
+Quarto 렌더링 중에는 아래 chunk가 같은 실행을 수행한다. 이미 output이 있으면 다시 다운로드하지 않고 기존 결과를 사용한다.
+
+```{python}
+#| eval: true
+#| echo: true
+import os
+import subprocess
+from pathlib import Path
+
+geid_env = Path(r"C:\Users\USER\.local\share\mamba\envs\geid")
+os.environ["PATH"] = (
+    str(geid_env)
+    + os.pathsep
+    + str(geid_env / "Library" / "bin")
+    + os.pathsep
+    + str(geid_env / "Scripts")
+    + os.pathsep
+    + os.environ.get("PATH", "")
+)
+
+project_dir = Path("example_project")
+patch_root = project_dir / "output" / "bochum" / "patches_bochum_zl16"
+
+cmd = [
+    str(geid_env / "python.exe"),
+    "main.py",
+    "--gpkg", r"data\shp\bochum_minimal.gpkg",
+    "--zoom", "16",
+    "--current",
+    "--geid-exe", r"C:\allmapsoft\geid\downloader.exe",
+]
+
+if not patch_root.exists() or not any(patch_root.iterdir()):
+    result = subprocess.run(cmd, cwd=project_dir, text=True, capture_output=True, check=True)
+    print(result.stdout)
+else:
+    print("Existing Bochum output found. Skipping download.")
+```
+
+## 실행 결과 확인
+
+```{python}
+#| eval: true
+#| echo: true
+output_root = project_dir / "output" / "bochum"
+patch_root = output_root / "patches_bochum_zl16"
+date_dirs = sorted([p for p in patch_root.iterdir() if p.is_dir()])
+merged_tifs = sorted(output_root.glob("*_Merged.tif"))
+
+print(f"actual-date folders: {len(date_dirs)}")
+for date_dir in date_dirs:
+    jpg_count = len(list(date_dir.glob("*.jpg")))
+    jgw_count = len(list(date_dir.glob("*.jgw")))
+    print(f"{date_dir.name}: {jpg_count} jpg, {jgw_count} jgw")
+
+print("merged GeoTIFFs:")
+for tif in merged_tifs:
+    print(tif.name)
+```
+
+## 동적 지도
+
+아래 지도는 Bochum 예제의 실제 촬영일별 patch layer를 보여준다.
+
+```{python}
+#| eval: true
+#| echo: true
+import folium
+from folium.raster_layers import ImageOverlay
+from folium.plugins import Fullscreen
+from IPython.display import HTML, display
+
+def read_jgw_bounds(jgw_path, width=256, height=256):
+    values = [float(v.strip()) for v in Path(jgw_path).read_text().splitlines()]
+    x_scale, _, _, y_scale, top_left_x, top_left_y = values
+    min_x = top_left_x
+    max_y = top_left_y
+    max_x = min_x + width * abs(x_scale)
+    min_y = max_y - height * abs(y_scale)
+    return [[min_y, min_x], [max_y, max_x]]
+
+def requested_targets_for_date(date_dir):
+    targets = []
+    for report_path in sorted(date_dir.glob("*_extraction_report.txt")):
+        for line in report_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if line.startswith("Requested Target"):
+                targets.append(line.split(":", 1)[1].strip())
+    return sorted(set(targets))
+
+all_bounds = []
+for jpg_path in sorted(patch_root.rglob("*.jpg")):
+    jgw_path = jpg_path.with_suffix(".jgw")
+    if jgw_path.exists():
+        all_bounds.append(read_jgw_bounds(jgw_path))
+
+min_lat = min(b[0][0] for b in all_bounds)
+min_lon = min(b[0][1] for b in all_bounds)
+max_lat = max(b[1][0] for b in all_bounds)
+max_lon = max(b[1][1] for b in all_bounds)
+
+m = folium.Map(
+    location=[(min_lat + max_lat) / 2, (min_lon + max_lon) / 2],
+    zoom_start=13,
+    tiles="OpenStreetMap",
+)
+
+for date_dir in date_dirs:
+    requested_targets = requested_targets_for_date(date_dir)
+    target_label = ", ".join(requested_targets) if requested_targets else "unknown target"
+    layer_name = f"{date_dir.name} (target: {target_label})"
+    group = folium.FeatureGroup(name=layer_name, show=(date_dir == date_dirs[0]))
+    for jpg_path in sorted(date_dir.glob("*.jpg")):
+        jgw_path = jpg_path.with_suffix(".jgw")
+        if not jgw_path.exists():
+            continue
+        ImageOverlay(
+            image=str(jpg_path),
+            bounds=read_jgw_bounds(jgw_path),
+            opacity=0.85,
+            interactive=False,
+            cross_origin=False,
+        ).add_to(group)
+    group.add_to(m)
+
+Fullscreen().add_to(m)
+folium.LayerControl(collapsed=False).add_to(m)
+m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
+
+map_path = output_root / "bochum_actual_date_layers.html"
+m.save(map_path)
+display(HTML(f'<iframe src="../{map_path.as_posix()}" width="100%" height="650" style="border:1px solid #ddd;"></iframe>'))
+```

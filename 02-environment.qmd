@@ -1,0 +1,125 @@
+# 실행 환경
+
+## GEID 프로그램 설치
+
+Python 자동화는 GEID를 대체하지 않는다. 이 매뉴얼의 파이프라인은 GEID의 `downloader.exe`를 Python에서 반복 호출하는 구조다.
+
+먼저 GEID를 설치하고 실행 파일 경로를 확인한다.
+
+- 공식 페이지: [Google Earth Images Downloader](https://www.allmapsoft.com/geid/index.html)
+- 다운로드 페이지: [Download Google Earth Images Downloader](https://www.allmapsoft.com/geid/download.html)
+
+GEID 다운로드 페이지는 EXE 설치 파일을 제공하며, 설치 프로그램을 실행해 setup 과정을 진행하면 된다.
+
+설치 후 `downloader.exe`의 위치를 확인한다. 예:
+
+```text
+C:\allmapsoft\geid\downloader.exe
+```
+
+이 경로는 `main.py`의 CLI 인자나 `GEIDPipelineManager` 초기화 인자로 넘긴다.
+
+```python
+pipeline = GEIDPipelineManager(
+    base_dir=str(base_dir),
+    geid_exe_path=r"C:\allmapsoft\geid\downloader.exe",
+)
+```
+
+::: {.callout-warning}
+## ZL 13 이상 다운로드
+
+GEID 공식 페이지에 따르면 trial version은 high zoom level image 다운로드가 제한되며, trial version의 최대 zoom level은 13이다. ZL 13보다 높은 고해상도 이미지를 받으려면 라이선스 구매 여부를 먼저 확인한다.
+:::
+
+## GEID 초기 옵션
+
+GEID GUI를 한 번 실행한 뒤 옵션에서 world file 생성을 켜둔다.
+
+```text
+Options
+└── Create .jgw file for each jpg tile
+```
+
+이 옵션은 반드시 켜는 것이 좋다. 이 파이프라인의 merge 단계는 `.jpg` 이미지와 같은 이름의 `.jgw` world file을 함께 사용해 patch의 위치를 계산하기 때문이다.
+
+::: {.callout-important}
+## .jgw 생성 옵션
+
+`.jgw`가 없으면 `merge_patches()`가 각 JPG tile의 공간 위치를 안정적으로 알 수 없다. 초기 셋업에서 `Create .jgw file for each jpg tile` 옵션을 켠 뒤 테스트 다운로드를 한 번 수행해 `.jpg`와 `.jgw`가 쌍으로 생성되는지 확인한다.
+:::
+
+## Python 환경 파일
+
+이 매뉴얼의 Python 예제와 미니멀 프로젝트는 프로젝트 루트의 `environment.yml`을 기준으로 한다.
+
+```text
+environment.yml
+```
+
+기존 `geid` 환경을 갱신할 때:
+
+```powershell
+mamba env update -n geid -f environment.yml
+mamba activate geid
+```
+
+새 환경을 만들 때:
+
+```powershell
+mamba env create -f environment.yml
+mamba activate geid
+```
+
+::: {.callout-note}
+## 최소 실행 환경
+
+`environment.yml`에는 GEID 자동화, GeoPackage 처리, GeoTIFF merge, Quarto 문서의 동적 지도 예제에 필요한 Python 패키지만 넣는다.
+:::
+
+## 현재 사용 환경
+
+GEID 자동화는 `geid` mamba 환경에서 실행한다.
+
+```powershell
+mamba activate geid
+```
+
+예상 환경 경로:
+
+```text
+C:\Users\USER\.local\share\mamba\envs\geid
+```
+
+## 필요한 패키지
+
+다운로드 자동화와 GeoTIFF 생성에는 다음 Python 패키지가 필요하다.
+
+```text
+geopandas
+shapely
+rasterio
+folium
+ipykernel
+ipython
+tqdm
+pandas
+```
+
+`geopandas`, `rasterio`는 GDAL/PROJ 계열 의존성을 함께 사용하므로 `conda-forge` 채널의 mamba 환경으로 맞추는 편이 가장 단순하다.
+
+## Quarto
+
+Quarto는 HTML 매뉴얼을 렌더링하기 위한 도구다. Python 자동화 실행 자체에는 필요하지 않다.
+
+이미 설치되어 있고 PATH가 잡혀 있다면 다음처럼 렌더한다.
+
+```powershell
+quarto render
+```
+
+PATH가 잡혀 있지 않다면 절대경로로 실행한다.
+
+```powershell
+& "C:\Program Files\Quarto\bin\quarto.exe" render
+```

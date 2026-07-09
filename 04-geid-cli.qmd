@@ -1,0 +1,104 @@
+# GEID command line 먼저 이해하기
+
+Python 자동화는 GEID를 새로 구현하는 것이 아니라, GEID의 command line 실행을 Python에서 반복 호출하는 구조다.
+
+따라서 먼저 GEID 공식 CLI 형식을 이해하는 것이 좋다.
+
+공식 문서: [Google Earth Images Downloader command line mode](https://www.allmapsoft.com/geid/commandline.htm)
+
+## downloader.exe 기본 형식
+
+GEID 공식 문서의 기본 형식은 다음과 같다.
+
+```powershell
+downloader.exe para1 para2 para3 para4 para5 para6 para7 para8 [para9]
+```
+
+각 인자의 의미:
+
+```text
+para1  task name
+para2  zoom level from
+para3  zoom level to
+para4  left longitude
+para5  right longitude
+para6  top latitude
+para7  bottom latitude
+para8  path to save
+para9  historical images date, optional
+```
+
+예를 들어 다음 영역을 다운로드한다고 하자.
+
+```text
+task name       test.geid
+zoom from       9
+zoom to         12
+left longitude 2
+right longitude 3
+top latitude   49
+bottom latitude 48
+save path      C:\downloads
+```
+
+명령은 다음과 같다.
+
+```powershell
+"C:\allmapsoft\geid\downloader.exe" "test.geid" 9 12 2 3 49 48 "C:\downloads"
+```
+
+historical image date를 지정하려면 마지막 인자를 추가한다.
+
+```powershell
+"C:\allmapsoft\geid\downloader.exe" "testhistory.geid" 9 12 2 3 49 48 "C:\downloads" "2012-12-31"
+```
+
+## Python pipeline과의 대응
+
+`core.py`의 `download_roi()`는 내부적으로 이 CLI 형식을 만든다.
+
+개념적으로는 다음과 같다.
+
+```python
+cmd = [
+    geid_exe_path,
+    f"{task_name}.geid",
+    str(zoom), str(zoom),
+    str(left_lon), str(right_lon),
+    str(top_lat), str(bottom_lat),
+    temp_dir,
+]
+
+if target_date.lower() != "current":
+    cmd.append(target_date)
+```
+
+즉 Python 자동화의 핵심은 다음을 반복하는 것이다.
+
+- bbox 계산
+- target date 목록 생성
+- GEID CLI 인자 조립
+- `downloader.exe` 실행
+- 로그를 읽어 실제 촬영일별로 patch 정리
+
+## combiner.exe와 rasterio merge
+
+GEID 공식 문서에는 `combiner.exe` CLI도 있다.
+
+```powershell
+"C:\allmapsoft\geid\combiner.exe" "C:\downloads\test.geid" 11 jpg,png,tif
+```
+
+하지만 이 Python 파이프라인의 기본 merge는 GEID `combiner.exe`가 아니라 `rasterio.merge`를 사용한다.
+
+이유는 실제 촬영일별로 patch를 재분류한 뒤, 날짜 폴더 단위로 GeoTIFF를 만들기 위해서다.
+
+따라서 매뉴얼의 기본 흐름은 다음과 같이 본다.
+
+```text
+GEID downloader.exe
+  → raw JPG/JGW patch 다운로드
+  → Python log parsing
+  → actual date별 patch 분류
+  → rasterio로 날짜별 GeoTIFF 생성
+```

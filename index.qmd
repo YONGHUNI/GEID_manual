@@ -1,0 +1,101 @@
+# 서론
+
+이 문서는 GEID를 Python으로 자동화하는 방법을 설명하는 운영 매뉴얼이다.
+
+매뉴얼의 예제와 미니멀 프로젝트는 다음 환경 파일을 기준으로 실행한다.
+
+```text
+environment.yml
+```
+
+이미 `geid` mamba 환경이 있다면 필요한 패키지만 갱신해서 사용하면 된다.
+
+```powershell
+mamba env update -n geid -f environment.yml
+mamba activate geid
+```
+
+새 환경을 만들 때는 다음처럼 실행한다.
+
+```powershell
+mamba env create -f environment.yml
+mamba activate geid
+```
+
+::: {.callout-important}
+## GEID 실행 파일은 별도 설치
+
+`environment.yml`은 Python 실행 환경만 정의한다. GEID의 `downloader.exe`는 별도 프로그램이므로, 설치 경로를 확인한 뒤 `main.py`나 `GEIDPipelineManager(geid_exe_path=...)`에 넘겨야 한다.
+
+고해상도 다운로드에도 주의가 필요하다. GEID 공식 페이지에 따르면 trial version은 high zoom level 다운로드가 제한되며 최대 zoom level은 13이다. ZL 13보다 높은 이미지를 안정적으로 받으려면 라이선스 구매 여부를 먼저 확인한다.
+:::
+
+## 기준 구조
+
+이 매뉴얼은 특정 사례 파일을 그대로 설명하는 문서가 아니라, 다음과 같은 일반 구조를 기준으로 한다.
+
+```text
+project/
+├── environment.yml
+├── main.py
+├── geid_pipeline/
+│   ├── __init__.py
+│   └── core.py
+├── data/
+│   └── shp/
+│       └── scenes4acquisition.gpkg
+└── output/
+```
+
+역할은 명확히 나눈다.
+
+`core.py`
+: GEID 자동화의 핵심 클래스와 재사용 가능한 함수를 담는다. CLI 인자나 입력 파일 형식을 직접 알지 않는다.
+
+`main.py`
+: 사용자가 실행하는 진입점이다. CLI 인자를 받고, 입력 자료를 읽고, `core.py`의 클래스를 import해서 실행한다.
+
+::: {.callout-note}
+## 책임 분리
+
+`core.py`는 GeoPackage, Shapefile, CSV 같은 파일 형식을 직접 읽는 레이어가 아니다. 파일을 읽고, 각 row를 `roi_gdf`, `roi_name`, `output_sub_dir`로 바꾼 뒤 `download_roi()`에 넘기는 일은 `main.py`가 담당한다.
+:::
+
+## 매뉴얼의 관점
+
+이 문서는 하나의 완성된 `main.py`를 그대로 복사해 쓰는 방법보다, `GEIDPipelineManager`를 이용해 각 프로젝트에 맞는 실행 스크립트를 구성하는 방법을 설명한다.
+
+`core.py`는 엔진이고, `main.py`는 운전석이다.
+
+따라서 본문은 다음 순서로 읽는 것이 좋다.
+
+```text
+GEID command line 이해
+  → geid_pipeline에서 GEIDPipelineManager import하기
+  → Jupyter에서 작은 bbox로 직접 호출해보기
+  → 같은 흐름을 main.py CLI로 옮기기
+  → 미니멀 example_project 실행하기
+  → 입력 데이터, 날짜 전략, merge 전략을 참고 장으로 확인하기
+```
+
+사용자는 `main.py`에서 다음을 결정한다.
+
+- 입력을 좌표로 받을지, GeoPackage로 받을지, CSV로 받을지
+- 날짜 목록을 current only로 할지, historical date list로 만들지
+- 출력 폴더를 site 단위로 둘지, project/group 단위로 나눌지
+- 다운로드 직후 merge할지, patch만 저장하고 나중에 merge할지
+- 실패한 site만 재실행할지, 전체 batch를 새로 돌릴지
+
+## 핵심 원칙
+
+GEID에서 요청한 target date는 실제 촬영일과 다를 수 있다. 또한 하나의 target date 요청에서도 Google Earth 타일은 여러 실제 촬영일로 섞여 있을 수 있다.
+
+그래서 이 파이프라인은 요청 날짜가 아니라 **GEID 로그에서 읽은 실제 촬영일**을 기준으로 이미지 패치를 분류한다.
+
+기본 분석 단위는 다음과 같다.
+
+```text
+site id + actual capture date
+```
+
+이 원칙 때문에 중복 타일을 줄이고, 시계열 분석에서 날짜 의미를 더 명확하게 유지할 수 있다.

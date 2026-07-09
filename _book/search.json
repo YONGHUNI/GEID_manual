@@ -1,0 +1,812 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "GEID Python 자동화 매뉴얼",
+    "section": "",
+    "text": "1 서론\n이 문서는 GEID를 Python으로 자동화하는 방법을 설명하는 운영 매뉴얼이다.\n매뉴얼의 예제와 미니멀 프로젝트는 다음 환경 파일을 기준으로 실행한다.\n이미 geid mamba 환경이 있다면 필요한 패키지만 갱신해서 사용하면 된다.\n새 환경을 만들 때는 다음처럼 실행한다.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>서론</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#기준-구조",
+    "href": "index.html#기준-구조",
+    "title": "GEID Python 자동화 매뉴얼",
+    "section": "1.1 기준 구조",
+    "text": "1.1 기준 구조\n이 매뉴얼은 특정 사례 파일을 그대로 설명하는 문서가 아니라, 다음과 같은 일반 구조를 기준으로 한다.\nproject/\n├── environment.yml\n├── main.py\n├── geid_pipeline/\n│   ├── __init__.py\n│   └── core.py\n├── data/\n│   └── shp/\n│       └── scenes4acquisition.gpkg\n└── output/\n역할은 명확히 나눈다.\n\ncore.py\n\nGEID 자동화의 핵심 클래스와 재사용 가능한 함수를 담는다. CLI 인자나 입력 파일 형식을 직접 알지 않는다.\n\nmain.py\n\n사용자가 실행하는 진입점이다. CLI 인자를 받고, 입력 자료를 읽고, core.py의 클래스를 import해서 실행한다.\n\n\n\n\n\n\n\n\nNote책임 분리\n\n\n\ncore.py는 GeoPackage, Shapefile, CSV 같은 파일 형식을 직접 읽는 레이어가 아니다. 파일을 읽고, 각 row를 roi_gdf, roi_name, output_sub_dir로 바꾼 뒤 download_roi()에 넘기는 일은 main.py가 담당한다.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>서론</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#매뉴얼의-관점",
+    "href": "index.html#매뉴얼의-관점",
+    "title": "GEID Python 자동화 매뉴얼",
+    "section": "1.2 매뉴얼의 관점",
+    "text": "1.2 매뉴얼의 관점\n이 문서는 하나의 완성된 main.py를 그대로 복사해 쓰는 방법보다, GEIDPipelineManager를 이용해 각 프로젝트에 맞는 실행 스크립트를 구성하는 방법을 설명한다.\ncore.py는 엔진이고, main.py는 운전석이다.\n따라서 본문은 다음 순서로 읽는 것이 좋다.\nGEID command line 이해\n  → geid_pipeline에서 GEIDPipelineManager import하기\n  → Jupyter에서 작은 bbox로 직접 호출해보기\n  → 같은 흐름을 main.py CLI로 옮기기\n  → 미니멀 example_project 실행하기\n  → 입력 데이터, 날짜 전략, merge 전략을 참고 장으로 확인하기\n사용자는 main.py에서 다음을 결정한다.\n\n입력을 좌표로 받을지, GeoPackage로 받을지, CSV로 받을지\n날짜 목록을 current only로 할지, historical date list로 만들지\n출력 폴더를 site 단위로 둘지, project/group 단위로 나눌지\n다운로드 직후 merge할지, patch만 저장하고 나중에 merge할지\n실패한 site만 재실행할지, 전체 batch를 새로 돌릴지",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>서론</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#핵심-원칙",
+    "href": "index.html#핵심-원칙",
+    "title": "GEID Python 자동화 매뉴얼",
+    "section": "1.3 핵심 원칙",
+    "text": "1.3 핵심 원칙\nGEID에서 요청한 target date는 실제 촬영일과 다를 수 있다. 또한 하나의 target date 요청에서도 Google Earth 타일은 여러 실제 촬영일로 섞여 있을 수 있다.\n그래서 이 파이프라인은 요청 날짜가 아니라 GEID 로그에서 읽은 실제 촬영일을 기준으로 이미지 패치를 분류한다.\n기본 분석 단위는 다음과 같다.\nsite id + actual capture date\n이 원칙 때문에 중복 타일을 줄이고, 시계열 분석에서 날짜 의미를 더 명확하게 유지할 수 있다.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>서론</span>"
+    ]
+  },
+  {
+    "objectID": "01-overview.html",
+    "href": "01-overview.html",
+    "title": "2  개요",
+    "section": "",
+    "text": "2.1 문서의 기준\nGEID Python 자동화는 관심 지역의 Google Earth 이미지 패치를 반복적으로 다운로드하고, 실제 촬영일 기준으로 정리한 뒤, 분석 가능한 GeoTIFF 산출물을 만드는 작업 흐름이다.\n전체 흐름은 다음과 같다.\nmain.py는 전체 실행 흐름을 조립하는 상위 레이어다. GEIDPipelineManager는 main.py 안에서 호출되는 재사용 엔진이며, 이미 정리된 roi_gdf, roi_name, output_sub_dir, target_dates, zoom을 받아 실제 다운로드와 분류를 수행한다. download_roi()는 actual-date patch 폴더와 report를 만들고, 날짜별 GeoTIFF는 main.py가 merge를 명시적으로 트리거할 때 생성된다.\n이 매뉴얼은 geid_pipeline/core.py를 핵심 라이브러리로 보고, main.py를 사용자 실행 스크립트로 본다.\n따라서 설명은 다음 순서로 진행한다.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>개요</span>"
+    ]
+  },
+  {
+    "objectID": "01-overview.html#문서의-기준",
+    "href": "01-overview.html#문서의-기준",
+    "title": "2  개요",
+    "section": "",
+    "text": "GEID command line 형식 확인\nfrom geid_pipeline import GEIDPipelineManager로 core 모듈 사용 방식 이해\nJupyter에서 bbox 하나를 직접 실행\nJupyter 흐름을 main.py CLI flag로 옮기기\n미니멀 example_project로 실제 폴더 구조와 실행 결과 확인\n입력 데이터, 날짜 전략, merge 전략은 필요할 때 참고\n\n\n\n\n\n\n\nTip읽는 방향\n\n\n\ncore.py 사용법을 먼저 이해한 뒤, Jupyter에서 작은 ROI를 직접 실행하고, 마지막에 그 흐름을 프로젝트별 main.py로 옮기는 순서가 가장 덜 헷갈린다.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>개요</span>"
+    ]
+  },
+  {
+    "objectID": "01-overview.html#산출물의-기본-단위",
+    "href": "01-overview.html#산출물의-기본-단위",
+    "title": "2  개요",
+    "section": "2.2 산출물의 기본 단위",
+    "text": "2.2 산출물의 기본 단위\n기본 산출물은 요청 날짜별이 아니라 실제 촬영일별로 생성된다.\nsite_001_2021-05-11_Merged.tif\nsite_001_2021-04-29_Merged.tif\nsite_001_Current_Default_Merged.tif\n이렇게 하는 이유는 Google Earth의 한 target date 요청 결과가 여러 실제 촬영일의 타일로 구성될 수 있기 때문이다.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>개요</span>"
+    ]
+  },
+  {
+    "objectID": "01-overview.html#여러-main.py가-가능하다",
+    "href": "01-overview.html#여러-main.py가-가능하다",
+    "title": "2  개요",
+    "section": "2.3 여러 main.py가 가능하다",
+    "text": "2.3 여러 main.py가 가능하다\n프로젝트마다 다운로드 상황은 다르다. 따라서 main.py는 하나의 정답 파일이 아니라, 프로젝트 목적에 맞게 구성하는 실행 스크립트로 보는 것이 좋다.\n예를 들어 다음과 같은 main.py가 모두 가능하다.\n\n좌표 bbox 하나만 받아 다운로드하는 최소 예제\nGeoPackage의 여러 feature를 반복 처리하는 batch 실행 스크립트\ncurrent imagery만 빠르게 받는 스크립트\n사용자가 지정한 historical date list만 받는 스크립트\n실패한 site 목록만 다시 실행하는 스크립트\n\n공통점은 모두 GEIDPipelineManager를 import해서 사용한다는 점이다.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>개요</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html",
+    "href": "02-environment.html",
+    "title": "3  실행 환경",
+    "section": "",
+    "text": "3.1 GEID 프로그램 설치\nPython 자동화는 GEID를 대체하지 않는다. 이 매뉴얼의 파이프라인은 GEID의 downloader.exe를 Python에서 반복 호출하는 구조다.\n먼저 GEID를 설치하고 실행 파일 경로를 확인한다.\nGEID 다운로드 페이지는 EXE 설치 파일을 제공하며, 설치 프로그램을 실행해 setup 과정을 진행하면 된다.\n설치 후 downloader.exe의 위치를 확인한다. 예:\n이 경로는 main.py의 CLI 인자나 GEIDPipelineManager 초기화 인자로 넘긴다.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#geid-프로그램-설치",
+    "href": "02-environment.html#geid-프로그램-설치",
+    "title": "3  실행 환경",
+    "section": "",
+    "text": "공식 페이지: Google Earth Images Downloader\n다운로드 페이지: Download Google Earth Images Downloader\n\n\n\nC:\\allmapsoft\\geid\\downloader.exe\n\npipeline = GEIDPipelineManager(\n    base_dir=str(base_dir),\n    geid_exe_path=r\"C:\\allmapsoft\\geid\\downloader.exe\",\n)\n\n\n\n\n\n\nWarningZL 13 이상 다운로드\n\n\n\nGEID 공식 페이지에 따르면 trial version은 high zoom level image 다운로드가 제한되며, trial version의 최대 zoom level은 13이다. ZL 13보다 높은 고해상도 이미지를 받으려면 라이선스 구매 여부를 먼저 확인한다.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#geid-초기-옵션",
+    "href": "02-environment.html#geid-초기-옵션",
+    "title": "3  실행 환경",
+    "section": "3.2 GEID 초기 옵션",
+    "text": "3.2 GEID 초기 옵션\nGEID GUI를 한 번 실행한 뒤 옵션에서 world file 생성을 켜둔다.\nOptions\n└── Create .jgw file for each jpg tile\n이 옵션은 반드시 켜는 것이 좋다. 이 파이프라인의 merge 단계는 .jpg 이미지와 같은 이름의 .jgw world file을 함께 사용해 patch의 위치를 계산하기 때문이다.\n\n\n\n\n\n\nImportant.jgw 생성 옵션\n\n\n\n.jgw가 없으면 merge_patches()가 각 JPG tile의 공간 위치를 안정적으로 알 수 없다. 초기 셋업에서 Create .jgw file for each jpg tile 옵션을 켠 뒤 테스트 다운로드를 한 번 수행해 .jpg와 .jgw가 쌍으로 생성되는지 확인한다.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#python-환경-파일",
+    "href": "02-environment.html#python-환경-파일",
+    "title": "3  실행 환경",
+    "section": "3.3 Python 환경 파일",
+    "text": "3.3 Python 환경 파일\n이 매뉴얼의 Python 예제와 미니멀 프로젝트는 프로젝트 루트의 environment.yml을 기준으로 한다.\nenvironment.yml\n기존 geid 환경을 갱신할 때:\nmamba env update -n geid -f environment.yml\nmamba activate geid\n새 환경을 만들 때:\nmamba env create -f environment.yml\nmamba activate geid\n\n\n\n\n\n\nNote최소 실행 환경\n\n\n\nenvironment.yml에는 GEID 자동화, GeoPackage 처리, GeoTIFF merge, Quarto 문서의 동적 지도 예제에 필요한 Python 패키지만 넣는다.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#현재-사용-환경",
+    "href": "02-environment.html#현재-사용-환경",
+    "title": "3  실행 환경",
+    "section": "3.4 현재 사용 환경",
+    "text": "3.4 현재 사용 환경\nGEID 자동화는 geid mamba 환경에서 실행한다.\nmamba activate geid\n예상 환경 경로:\nC:\\Users\\USER\\.local\\share\\mamba\\envs\\geid",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#필요한-패키지",
+    "href": "02-environment.html#필요한-패키지",
+    "title": "3  실행 환경",
+    "section": "3.5 필요한 패키지",
+    "text": "3.5 필요한 패키지\n다운로드 자동화와 GeoTIFF 생성에는 다음 Python 패키지가 필요하다.\ngeopandas\nshapely\nrasterio\nfolium\nipykernel\nipython\ntqdm\npandas\ngeopandas, rasterio는 GDAL/PROJ 계열 의존성을 함께 사용하므로 conda-forge 채널의 mamba 환경으로 맞추는 편이 가장 단순하다.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "02-environment.html#quarto",
+    "href": "02-environment.html#quarto",
+    "title": "3  실행 환경",
+    "section": "3.6 Quarto",
+    "text": "3.6 Quarto\nQuarto는 HTML 매뉴얼을 렌더링하기 위한 도구다. Python 자동화 실행 자체에는 필요하지 않다.\n이미 설치되어 있고 PATH가 잡혀 있다면 다음처럼 렌더한다.\nquarto render\nPATH가 잡혀 있지 않다면 절대경로로 실행한다.\n& \"C:\\Program Files\\Quarto\\bin\\quarto.exe\" render",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>실행 환경</span>"
+    ]
+  },
+  {
+    "objectID": "03-project-structure.html",
+    "href": "03-project-structure.html",
+    "title": "4  프로젝트 구조",
+    "section": "",
+    "text": "4.1 파일별 책임\n권장 프로젝트 구조는 다음과 같다.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>프로젝트 구조</span>"
+    ]
+  },
+  {
+    "objectID": "03-project-structure.html#파일별-책임",
+    "href": "03-project-structure.html#파일별-책임",
+    "title": "4  프로젝트 구조",
+    "section": "",
+    "text": "environment.yml\n\nGEID 자동화와 매뉴얼 예제 실행에 필요한 Python 패키지를 정의한다.\n\nmain.py\n\n사용자가 실행하는 진입점이다. 각 프로젝트의 상황에 맞게 입력 방식, 날짜 전략, 출력 폴더, merge 시점을 결정한다.\n\ngeid_pipeline/core.py\n\n실제 GEID 실행, 공간 분할, 로그 파싱, 날짜별 패치 분류, merge 함수 등을 제공한다. 단, CLI 인자를 직접 처리하지 않는다.\n\noutput/\n\n다운로드된 패치, 날짜별 report, 날짜별 merged GeoTIFF가 저장되는 위치다.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>프로젝트 구조</span>"
+    ]
+  },
+  {
+    "objectID": "03-project-structure.html#main.py는-프로젝트마다-달라질-수-있다",
+    "href": "03-project-structure.html#main.py는-프로젝트마다-달라질-수-있다",
+    "title": "4  프로젝트 구조",
+    "section": "4.2 main.py는 프로젝트마다 달라질 수 있다",
+    "text": "4.2 main.py는 프로젝트마다 달라질 수 있다\nmain.py는 사례에 따라 달라지는 부분을 담는다.\n좌표 하나만 테스트할 때는 입력 좌표를 코드에 직접 둘 수 있다.\n여러 site를 반복 처리할 때는 GeoPackage나 CSV를 읽어 site별로 download_roi()를 호출할 수 있다.\n운영 환경에서는 CLI 인자를 받도록 구성하는 편이 좋다.\npython main.py --gpkg data/shp/scenes4acquisition.gpkg --zoom 18 --start_year 2021",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>프로젝트 구조</span>"
+    ]
+  },
+  {
+    "objectID": "03-project-structure.html#출력-폴더-예시",
+    "href": "03-project-structure.html#출력-폴더-예시",
+    "title": "4  프로젝트 구조",
+    "section": "4.3 출력 폴더 예시",
+    "text": "4.3 출력 폴더 예시\noutput/\n└── demo_group/\n    ├── patches_site_001/\n    │   ├── 2021-05-11/\n    │   │   ├── *.jpg\n    │   │   ├── *.jgw\n    │   │   └── site_001_extraction_report.txt\n    │   └── Current_Default/\n    │       ├── *.jpg\n    │       ├── *.jgw\n    │       └── site_001_extraction_report.txt\n    ├── site_001_2021-05-11_Merged.tif\n    └── site_001_Current_Default_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>프로젝트 구조</span>"
+    ]
+  },
+  {
+    "objectID": "04-geid-cli.html",
+    "href": "04-geid-cli.html",
+    "title": "5  GEID command line 먼저 이해하기",
+    "section": "",
+    "text": "5.1 downloader.exe 기본 형식\nPython 자동화는 GEID를 새로 구현하는 것이 아니라, GEID의 command line 실행을 Python에서 반복 호출하는 구조다.\n따라서 먼저 GEID 공식 CLI 형식을 이해하는 것이 좋다.\n공식 문서: Google Earth Images Downloader command line mode\nGEID 공식 문서의 기본 형식은 다음과 같다.\n각 인자의 의미:\n예를 들어 다음 영역을 다운로드한다고 하자.\n명령은 다음과 같다.\nhistorical image date를 지정하려면 마지막 인자를 추가한다.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>GEID command line 먼저 이해하기</span>"
+    ]
+  },
+  {
+    "objectID": "04-geid-cli.html#downloader.exe-기본-형식",
+    "href": "04-geid-cli.html#downloader.exe-기본-형식",
+    "title": "5  GEID command line 먼저 이해하기",
+    "section": "",
+    "text": "downloader.exe para1 para2 para3 para4 para5 para6 para7 para8 [para9]\n\npara1  task name\npara2  zoom level from\npara3  zoom level to\npara4  left longitude\npara5  right longitude\npara6  top latitude\npara7  bottom latitude\npara8  path to save\npara9  historical images date, optional\n\ntask name       test.geid\nzoom from       9\nzoom to         12\nleft longitude 2\nright longitude 3\ntop latitude   49\nbottom latitude 48\nsave path      C:\\downloads\n\n\"C:\\allmapsoft\\geid\\downloader.exe\" \"test.geid\" 9 12 2 3 49 48 \"C:\\downloads\"\n\n\"C:\\allmapsoft\\geid\\downloader.exe\" \"testhistory.geid\" 9 12 2 3 49 48 \"C:\\downloads\" \"2012-12-31\"",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>GEID command line 먼저 이해하기</span>"
+    ]
+  },
+  {
+    "objectID": "04-geid-cli.html#python-pipeline과의-대응",
+    "href": "04-geid-cli.html#python-pipeline과의-대응",
+    "title": "5  GEID command line 먼저 이해하기",
+    "section": "5.2 Python pipeline과의 대응",
+    "text": "5.2 Python pipeline과의 대응\ncore.py의 download_roi()는 내부적으로 이 CLI 형식을 만든다.\n개념적으로는 다음과 같다.\ncmd = [\n    geid_exe_path,\n    f\"{task_name}.geid\",\n    str(zoom), str(zoom),\n    str(left_lon), str(right_lon),\n    str(top_lat), str(bottom_lat),\n    temp_dir,\n]\n\nif target_date.lower() != \"current\":\n    cmd.append(target_date)\n즉 Python 자동화의 핵심은 다음을 반복하는 것이다.\n\nbbox 계산\ntarget date 목록 생성\nGEID CLI 인자 조립\ndownloader.exe 실행\n로그를 읽어 실제 촬영일별로 patch 정리",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>GEID command line 먼저 이해하기</span>"
+    ]
+  },
+  {
+    "objectID": "04-geid-cli.html#combiner.exe와-rasterio-merge",
+    "href": "04-geid-cli.html#combiner.exe와-rasterio-merge",
+    "title": "5  GEID command line 먼저 이해하기",
+    "section": "5.3 combiner.exe와 rasterio merge",
+    "text": "5.3 combiner.exe와 rasterio merge\nGEID 공식 문서에는 combiner.exe CLI도 있다.\n\"C:\\allmapsoft\\geid\\combiner.exe\" \"C:\\downloads\\test.geid\" 11 jpg,png,tif\n하지만 이 Python 파이프라인의 기본 merge는 GEID combiner.exe가 아니라 rasterio.merge를 사용한다.\n이유는 실제 촬영일별로 patch를 재분류한 뒤, 날짜 폴더 단위로 GeoTIFF를 만들기 위해서다.\n따라서 매뉴얼의 기본 흐름은 다음과 같이 본다.\nGEID downloader.exe\n  → raw JPG/JGW patch 다운로드\n  → Python log parsing\n  → actual date별 patch 분류\n  → rasterio로 날짜별 GeoTIFF 생성",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>GEID command line 먼저 이해하기</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html",
+    "href": "09-core-pipeline.html",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "",
+    "text": "6.1 클래스 초기화\ncore.py는 GEID 자동화의 재사용 가능한 핵심 로직을 제공한다.\n사용자는 보통 main.py에서 다음처럼 import한다.\ncore.py는 독립 실행용 CLI 스크립트가 아니다. argparse로 인자를 받거나, 입력 파일을 직접 정하거나, 출력 폴더 정책을 결정하지 않는다.\n그런 결정은 main.py에서 한다.\n이 장의 목적은 main.py를 만들기 전에, 먼저 import해오는 모듈이 어떤 책임을 갖는지 이해하는 것이다.\n예시:\n이 인자들은 pipeline 객체 자체의 실행 환경과 공간 처리 방식을 정한다.\n다시 말해, 여기에는 특정 site 이름이나 target date 목록을 넣지 않는다. 그런 값들은 download_roi()를 호출할 때 넘긴다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#클래스-초기화",
+    "href": "09-core-pipeline.html#클래스-초기화",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "",
+    "text": "pipeline = GEIDPipelineManager(\n    base_dir=str(base_dir),\n    geid_exe_path=\"downloader.exe\",\n    grid_chunk_size=16,\n    fill_ratio_threshold=0.6,\n)\n\nbase_dir\n\n입력과 출력의 기준 프로젝트 경로다.\n\ngeid_exe_path\n\nGEID 실행 파일 경로 또는 PATH에 등록된 실행 파일 이름이다.\n\ngrid_chunk_size\n\nROI를 grid로 쪼갤 때 한 chunk에 포함할 tile 단위 크기다.\n\nfill_ratio_threshold\n\nROI polygon이 bounding box를 얼마나 채우는지 판단하는 기준이다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#download_roi-인자",
+    "href": "09-core-pipeline.html#download_roi-인자",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "6.2 download_roi() 인자",
+    "text": "6.2 download_roi() 인자\ndownload_roi()는 실제로 하나의 ROI 또는 site를 다운로드할 때 호출한다.\n예시:\npipeline.download_roi(\n    roi_gdf=roi_gdf,\n    roi_name=\"test_bbox\",\n    output_sub_dir=\"manual_examples/bbox\",\n    target_dates=[\"2012-12-31\", \"current\"],\n    zoom=12,\n)\n\nroi_gdf\n\n다운로드할 geometry를 담은 GeoDataFrame이다. 좌표 bbox를 shapely.box()로 만든 경우에도 최종적으로는 GeoDataFrame으로 감싸서 넘긴다.\n\nroi_name\n\n현재 다운로드 작업의 site 이름 또는 식별자다. task name과 산출물 파일명에 사용된다.\n\noutput_sub_dir\n\nbase_dir/output/ 아래에 결과를 저장할 하위 경로다. 예를 들어 \"manual_examples/bbox\"를 넘기면 결과는 output/manual_examples/bbox/ 아래에 정리된다.\n\ntarget_dates\n\nGEID에 요청할 날짜 문자열 리스트다. main.py의 generate_target_dates()가 만든 리스트를 넘기거나, 직접 [\"2012-12-31\"], [\"current\"]처럼 지정할 수 있다.\n\nzoom\n\nGEID CLI의 zoom from/to에 들어갈 zoom level이다. 현재 core 구현은 하나의 zoom 값을 받아 zoom from과 zoom to에 같은 값을 넣는 방식이다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#인자-흐름-요약",
+    "href": "09-core-pipeline.html#인자-흐름-요약",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "6.3 인자 흐름 요약",
+    "text": "6.3 인자 흐름 요약\nmain.py에서 사용자가 정한 값은 다음 흐름으로 core에 전달된다.\nCLI 인자 또는 설정값\n  → generate_target_dates()\n  → target_dates 리스트\n  → pipeline.download_roi(..., target_dates=target_dates, zoom=args.zoom)\n  → downloader.exe task.geid zoom zoom left right top bottom save_path [target_date]",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#주요-메서드",
+    "href": "09-core-pipeline.html#주요-메서드",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "6.4 주요 메서드",
+    "text": "6.4 주요 메서드\n\ndownload_roi()\n\n하나의 ROI/site에 대해 여러 target date와 여러 bbox chunk를 순회하며 GEID를 실행한다.\n\n_parse_log_and_relocate()\n\nGEID 로그를 읽고, 실제 촬영일별로 .jpg와 .jgw를 이동한다.\n\nmerge_patches()\n\n전달받은 폴더 안의 .jpg 패치를 하나의 array로 병합한다.\n\nconvert_to_geotiff()\n\n병합된 array와 metadata를 GeoTIFF로 저장한다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#core.py에-cli가-없는-이유",
+    "href": "09-core-pipeline.html#core.py에-cli가-없는-이유",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "6.5 core.py에 CLI가 없는 이유",
+    "text": "6.5 core.py에 CLI가 없는 이유\ncore.py는 라이브러리처럼 동작해야 한다. 그래야 다른 실행 스크립트나 테스트 코드에서도 같은 클래스를 재사용할 수 있다.\nCLI 인자, 입력 파일명, 실행 모드 같은 운영 정책은 main.py가 담당하는 편이 좋다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "09-core-pipeline.html#main.py와의-관계",
+    "href": "09-core-pipeline.html#main.py와의-관계",
+    "title": "6  geid_pipeline 모듈과 GEIDPipelineManager",
+    "section": "6.6 main.py와의 관계",
+    "text": "6.6 main.py와의 관계\nmain.py는 다음 질문에 답한다.\n\n어떤 site를 다운로드할 것인가?\n어떤 날짜를 요청할 것인가?\n출력 폴더를 어떻게 나눌 것인가?\n다운로드 후 merge를 바로 할 것인가?\n\ncore.py는 그 결정이 내려진 뒤 실제 작업을 수행한다.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>geid_pipeline 모듈과 GEIDPipelineManager</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html",
+    "href": "07-python-coordinate-example.html",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "",
+    "text": "7.1 최소 bbox 예제\nGEIDPipelineManager의 역할을 이해한 뒤에는 Jupyter에서 아주 작은 bbox 하나를 직접 다운로드해보는 것이 좋다.\n이 장에서는 main.py를 만들기 전에, Jupyter에서 GEIDPipelineManager를 직접 import해서 호출한다. 이렇게 하면 입력 geometry, target date, output 폴더가 core 모듈로 어떻게 전달되는지 눈으로 확인할 수 있다.\n이 실험의 목적은 대량 처리가 아니라 다음 세 가지를 눈으로 확인하는 것이다.\n예제 bbox는 매우 좁은 영역으로 잡는다. 너무 넓은 bbox를 사용하면 다운로드 시간이 길어지고 패치 수가 많아져 학습용 예제로 적합하지 않다.\n예시 좌표:\n주의할 점은 좌표 순서다.\n일반 bbox 표기는 보통 다음 순서를 쓴다.\n하지만 GEID CLI는 다음 순서로 받는다.\n따라서 main.py나 Jupyter 코드에서 bbox를 GEID CLI로 넘길 때 순서를 명확히 바꿔야 한다.",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#최소-bbox-예제",
+    "href": "07-python-coordinate-example.html#최소-bbox-예제",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "",
+    "text": "left longitude    2.2945\nbottom latitude  48.8580\nright longitude   2.2960\ntop latitude     48.8590\nzoom             18\n\n\nleft, bottom, right, top\n\nleft, right, top, bottom\n\n\n7.1.1 Jupyter 준비 셀\n먼저 공통 설정을 만든다.\nfrom pathlib import Path\n\nbase_dir = Path(r\"E:\\workspace\\Other_nations\")\ngeid_exe = r\"C:\\allmapsoft\\geid\\downloader.exe\"\n\nsite_id = \"manual_bbox\"\noutput_sub_dir = \"manual_examples/bbox\"\nzoom = 18\n\nleft = 2.2945\nbottom = 48.8580\nright = 2.2960\ntop = 48.8590\n\n\n7.1.2 current imagery\ncurrent imagery는 historical date 인자를 넣지 않는다.\nGEID CLI로 직접 쓰면 다음과 같다.\n\"C:\\allmapsoft\\geid\\downloader.exe\" \"manual_bbox_current.geid\" 18 18 2.2945 2.2960 48.8590 48.8580 \"E:\\workspace\\Other_nations\\output\\manual_examples\\bbox\"\nJupyter에서는 GEIDPipelineManager를 통해 같은 요청을 실행한다.\nimport geopandas as gpd\nfrom shapely.geometry import box\nfrom geid_pipeline import GEIDPipelineManager\n\nroi_gdf = gpd.GeoDataFrame(\n    {\"site_id\": [site_id]},\n    geometry=[box(left, bottom, right, top)],\n    crs=\"EPSG:4326\",\n)\n\npipeline = GEIDPipelineManager(\n    base_dir=str(base_dir),\n    geid_exe_path=geid_exe,\n)\n\npipeline.download_roi(\n    roi_gdf=roi_gdf,\n    roi_name=site_id,\n    output_sub_dir=output_sub_dir,\n    target_dates=[\"current\"],\n    zoom=zoom,\n)\n\n\n7.1.3 historical imagery\nhistorical imagery는 target date를 문자열로 넘긴다.\nGEID CLI로 직접 쓰면 다음과 같다.\n\"C:\\allmapsoft\\geid\\downloader.exe\" \"manual_bbox_2012-12-31.geid\" 18 18 2.2945 2.2960 48.8590 48.8580 \"E:\\workspace\\Other_nations\\output\\manual_examples\\bbox\" \"2012-12-31\"\nJupyter에서는 target_dates에 날짜 문자열을 넣는다.\npipeline.download_roi(\n    roi_gdf=roi_gdf,\n    roi_name=site_id,\n    output_sub_dir=output_sub_dir,\n    target_dates=[\"2012-12-31\"],\n    zoom=zoom,\n)\n\n\n7.1.4 Putney-Wandsworth full pipeline 예제\n위의 파리 bbox는 좌표 순서와 GEID CLI 호출 방식을 이해하기 위한 최소 예제다.\n우리 파이프라인의 핵심 기능을 보려면 조금 더 넓은 bbox에서 current와 historical target date를 함께 넣어보는 것이 좋다.\n아래 bbox는 Putney, Hurlingham, Sands End, Wandsworth 일대를 포함하도록 잡은 예시다. 이 구간은 Google Earth 화면에서 같은 target 시점 안에서도 영상 경계가 뚜렷하게 보이는 사례로, 실제 촬영일 기준 분류를 설명하기에 적합하다.\nleft = -0.2350\nbottom = 51.4500\nright = -0.1700\ntop = 51.4825\nzoom = 18\n\nsite_id = \"manual_putney_wandsworth\"\noutput_sub_dir = \"manual_examples/putney_wandsworth_full_pipeline\"\n\nroi_gdf = gpd.GeoDataFrame(\n    {\"site_id\": [site_id]},\n    geometry=[box(left, bottom, right, top)],\n    crs=\"EPSG:4326\",\n)\n\npipeline.download_roi(\n    roi_gdf=roi_gdf,\n    roi_name=site_id,\n    output_sub_dir=output_sub_dir,\n    target_dates=[\"current\", \"2014-02-15\"],\n    zoom=zoom,\n)\n이 실행은 다음 기능을 한 번에 보여준다.\n\n여러 target date 순회\nGEID CLI 반복 호출\nGEID log parsing\n실제 촬영일별 patch 분류\n동일한 실제 촬영일 폴더에 중복 patch 누적 방지\n날짜 폴더별 merge 가능 구조 생성\n\n아래 Quarto Python chunk는 같은 작업을 문서 안에서 직접 수행한다. 이미 결과 폴더가 있으면 다시 다운로드하지 않고 기존 결과를 사용한다.\n\nimport os\nimport sys\nfrom pathlib import Path\n\ngeid_env = Path(r\"C:\\Users\\USER\\.local\\share\\mamba\\envs\\geid\")\nos.environ[\"PATH\"] = (\n    str(geid_env)\n    + os.pathsep\n    + str(geid_env / \"Library\" / \"bin\")\n    + os.pathsep\n    + str(geid_env / \"Scripts\")\n    + os.pathsep\n    + os.environ.get(\"PATH\", \"\")\n)\n\nother_nations = Path(r\"E:\\workspace\\Other_nations\")\nif str(other_nations) not in sys.path:\n    sys.path.insert(0, str(other_nations))\n\nimport geopandas as gpd\nfrom shapely.geometry import box\nfrom geid_pipeline import GEIDPipelineManager\n\nbase_dir = Path.cwd()\ngeid_exe = r\"C:\\allmapsoft\\geid\\downloader.exe\"\n\nsite_id = \"manual_putney_wandsworth\"\noutput_sub_dir = \"manual_examples/putney_wandsworth_full_pipeline\"\nzoom = 18\n\nleft = -0.2350\nbottom = 51.4500\nright = -0.1700\ntop = 51.4825\n\nroi_gdf = gpd.GeoDataFrame(\n    {\"site_id\": [site_id]},\n    geometry=[box(left, bottom, right, top)],\n    crs=\"EPSG:4326\",\n)\n\npipeline = GEIDPipelineManager(\n    base_dir=str(base_dir),\n    geid_exe_path=geid_exe,\n    grid_chunk_size=16,\n    fill_ratio_threshold=0.6,\n)\n\npatch_root = base_dir / \"output\" / output_sub_dir / f\"patches_{site_id}\"\noutput_root = base_dir / \"output\" / output_sub_dir\n\nif not patch_root.exists() or not any(patch_root.iterdir()):\n    pipeline.download_roi(\n        roi_gdf=roi_gdf,\n        roi_name=site_id,\n        output_sub_dir=output_sub_dir,\n        target_dates=[\"current\", \"2014-02-15\"],\n        zoom=zoom,\n    )\n\nfor folder_path in sorted(p for p in patch_root.iterdir() if p.is_dir()):\n    actual_date = folder_path.name\n    output_tif = output_root / f\"{site_id}_{actual_date}_Merged.tif\"\n    if output_tif.exists():\n        continue\n\n    image_array, meta = pipeline.merge_patches(\n        target_folder=str(folder_path),\n        output_filename=f\"temp_{actual_date}\",\n    )\n    pipeline.convert_to_geotiff(\n        image_array=image_array,\n        meta=meta,\n        output_path=str(output_tif),\n    )\n\nprint(f\"patch root: {patch_root}\")\nprint(f\"actual-date folders: {len([p for p in patch_root.iterdir() if p.is_dir()])}\")\n\npatch root: E:\\workspace\\geid_manual\\output\\manual_examples\\putney_wandsworth_full_pipeline\\patches_manual_putney_wandsworth\nactual-date folders: 5",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#결과-폴더-확인",
+    "href": "07-python-coordinate-example.html#결과-폴더-확인",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "7.2 결과 폴더 확인",
+    "text": "7.2 결과 폴더 확인\n실행 후에는 patches_{site_id} 아래에 실제 촬영일 폴더가 생긴다.\npatch_root = base_dir / \"output\" / output_sub_dir / f\"patches_{site_id}\"\n\nfor path in sorted(patch_root.glob(\"*\")):\n    if path.is_dir():\n        jpg_count = len(list(path.glob(\"*.jpg\")))\n        jgw_count = len(list(path.glob(\"*.jgw\")))\n        print(path.name, jpg_count, \"jpg\", jgw_count, \"jgw\")\n예상 구조는 다음과 같다.\noutput/\n└── manual_examples/\n    └── bbox/\n        └── patches_{site_id}/\n            ├── Current_Default/\n            │   ├── *.jpg\n            │   ├── *.jgw\n            │   └── manual_bbox_extraction_report.txt\n            └── 2014-02-15 또는 실제 촬영일/\n                ├── *.jpg\n                ├── *.jgw\n                └── manual_bbox_extraction_report.txt\nhistorical imagery를 요청해도 실제 폴더명이 반드시 요청 날짜와 같지는 않을 수 있다. GEID 로그의 실제 촬영일을 기준으로 폴더가 만들어지기 때문이다.",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#날짜별-merge-확인",
+    "href": "07-python-coordinate-example.html#날짜별-merge-확인",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "7.3 날짜별 merge 확인",
+    "text": "7.3 날짜별 merge 확인\n다운로드가 끝나면 날짜 폴더 하나를 골라 merge를 실행해볼 수 있다.\ndate_folders = [p for p in patch_root.iterdir() if p.is_dir()]\ntarget_folder = date_folders[0]\nactual_date = target_folder.name\n\nimage_array, meta = pipeline.merge_patches(\n    target_folder=str(target_folder),\n    output_filename=f\"temp_{actual_date}\",\n)\n\noutput_tif = base_dir / \"output\" / output_sub_dir / f\"{site_id}_{actual_date}_Merged.tif\"\npipeline.convert_to_geotiff(\n    image_array=image_array,\n    meta=meta,\n    output_path=str(output_tif),\n)\n\noutput_tif",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#full-pipeline-실제-결과-예시",
+    "href": "07-python-coordinate-example.html#full-pipeline-실제-결과-예시",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "7.4 full pipeline 실제 결과 예시",
+    "text": "7.4 full pipeline 실제 결과 예시\n아래 결과는 Putney-Wandsworth bbox에 대해 다음 target date 목록을 실행한 예시다.\ntarget_dates = [\"current\", \"2014-02-15\"]\nQuarto는 위 Python chunk로 예제 결과를 만들고, 아래 chunk에서 그 결과를 읽어 문서에 표시한다.\n\nfrom pathlib import Path\n\nroot = Path(\"output/manual_examples/putney_wandsworth_full_pipeline\")\npatch_root = root / \"patches_manual_putney_wandsworth\"\ndate_dirs = sorted([p for p in patch_root.iterdir() if p.is_dir()])\nmerged_tifs = sorted(root.glob(\"*_Merged.tif\"))\n\nprint(f\"pipeline output folder: {root}\")\nprint(f\"actual-date folders: {len(date_dirs)}\")\nprint(f\"merged GeoTIFF files: {len(merged_tifs)}\")\n\npipeline output folder: output\\manual_examples\\putney_wandsworth_full_pipeline\nactual-date folders: 5\nmerged GeoTIFF files: 5\n\n\n실제 촬영일 기준으로 만들어진 폴더는 다음과 같다.\n\nfor date_dir in date_dirs:\n    jpg_count = len(list(date_dir.glob(\"*.jpg\")))\n    jgw_count = len(list(date_dir.glob(\"*.jgw\")))\n    report_count = len(list(date_dir.glob(\"*_extraction_report.txt\")))\n    print(f\"{date_dir.name}: {jpg_count} jpg, {jgw_count} jgw, {report_count} report\")\n\n2013-07-19: 143 jpg, 143 jgw, 1 report\n2014-02-13: 182 jpg, 182 jgw, 1 report\n2020-04-11: 269 jpg, 269 jgw, 1 report\n2024-04-13: 13 jpg, 13 jgw, 1 report\nCurrent_Default: 43 jpg, 43 jgw, 1 report\n\n\n이 예제에서는 2014-02-15를 요청하더라도 GEID 로그에 기록된 실제 촬영일 기준으로 patch가 저장된다.\n특히 한 target 시점 안에서도 여러 실제 촬영일 폴더가 만들어질 수 있다. 이 부분이 실제 촬영일 기준 분류가 필요한 이유를 보여준다.\n생성된 날짜별 merged GeoTIFF는 다음과 같다.\n\nfor path in merged_tifs:\n    print(path.relative_to(root))\n\nmanual_putney_wandsworth_2013-07-19_Merged.tif\nmanual_putney_wandsworth_2014-02-13_Merged.tif\nmanual_putney_wandsworth_2020-04-11_Merged.tif\nmanual_putney_wandsworth_2024-04-13_Merged.tif\nmanual_putney_wandsworth_Current_Default_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#날짜별-patch를-동적-지도로-보기",
+    "href": "07-python-coordinate-example.html#날짜별-patch를-동적-지도로-보기",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "7.5 날짜별 patch를 동적 지도로 보기",
+    "text": "7.5 날짜별 patch를 동적 지도로 보기\n날짜별로 분류된 patch를 동적 지도에 올리면 실제 촬영일 경계가 훨씬 직관적으로 보인다.\n아래 chunk는 각 .jpg의 .jgw world file을 읽어 tile bounds를 계산하고, 실제 촬영일 폴더별로 Leaflet layer를 만든다.\n\nimport folium\nfrom folium.raster_layers import ImageOverlay\nfrom folium.plugins import Fullscreen\nfrom IPython.display import HTML, display\n\ndef read_jgw_bounds(jgw_path, width=256, height=256):\n    values = [float(v.strip()) for v in Path(jgw_path).read_text().splitlines()]\n    x_scale, _, _, y_scale, top_left_x, top_left_y = values\n    min_x = top_left_x\n    max_y = top_left_y\n    max_x = min_x + width * abs(x_scale)\n    min_y = max_y - height * abs(y_scale)\n    return [[min_y, min_x], [max_y, max_x]]\n\ndef requested_targets_for_date(date_dir):\n    targets = []\n    for report_path in sorted(date_dir.glob(\"*_extraction_report.txt\")):\n        for line in report_path.read_text(encoding=\"utf-8\", errors=\"ignore\").splitlines():\n            if line.startswith(\"Requested Target\"):\n                targets.append(line.split(\":\", 1)[1].strip())\n    return sorted(set(targets))\n\nall_bounds = []\nfor jpg_path in sorted(patch_root.rglob(\"*.jpg\")):\n    jgw_path = jpg_path.with_suffix(\".jgw\")\n    if jgw_path.exists():\n        all_bounds.append(read_jgw_bounds(jgw_path))\n\nmin_lat = min(b[0][0] for b in all_bounds)\nmin_lon = min(b[0][1] for b in all_bounds)\nmax_lat = max(b[1][0] for b in all_bounds)\nmax_lon = max(b[1][1] for b in all_bounds)\n\nm = folium.Map(\n    location=[(min_lat + max_lat) / 2, (min_lon + max_lon) / 2],\n    zoom_start=14,\n    tiles=\"OpenStreetMap\",\n)\n\nfor date_dir in date_dirs:\n    requested_targets = requested_targets_for_date(date_dir)\n    target_label = \", \".join(requested_targets) if requested_targets else \"unknown target\"\n    layer_name = f\"{date_dir.name} (target: {target_label})\"\n    group = folium.FeatureGroup(name=layer_name, show=(date_dir.name == date_dirs[0].name))\n    for jpg_path in sorted(date_dir.glob(\"*.jpg\")):\n        jgw_path = jpg_path.with_suffix(\".jgw\")\n        if not jgw_path.exists():\n            continue\n        bounds = read_jgw_bounds(jgw_path)\n        ImageOverlay(\n            image=str(jpg_path),\n            bounds=bounds,\n            opacity=0.85,\n            interactive=False,\n            cross_origin=False,\n        ).add_to(group)\n    group.add_to(m)\n\nfolium.Rectangle(\n    bounds=[[bottom, left], [top, right]],\n    color=\"#ffcc00\",\n    weight=2,\n    fill=False,\n    tooltip=\"Requested bbox\",\n).add_to(m)\n\nFullscreen().add_to(m)\nfolium.LayerControl(collapsed=False).add_to(m)\nm.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])\n\nmap_path = root / \"putney_wandsworth_actual_date_layers.html\"\nm.save(map_path)\ndisplay(HTML(f'&lt;iframe src=\"../{map_path.as_posix()}\" width=\"100%\" height=\"650\" style=\"border:1px solid #ddd;\"&gt;&lt;/iframe&gt;'))\n\n\n\n\n샘플 patch 하나를 문서에 표시하면 다음과 같다.\n\nfrom IPython.display import Image, display\n\njpg_files = sorted(patch_root.rglob(\"*.jpg\"))\ndisplay(Image(filename=str(jpg_files[0])))",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "07-python-coordinate-example.html#이-예제에서-main.py로-확장하기",
+    "href": "07-python-coordinate-example.html#이-예제에서-main.py로-확장하기",
+    "title": "7  Jupyter에서 GEIDPipelineManager 직접 호출하기",
+    "section": "7.6 이 예제에서 main.py로 확장하기",
+    "text": "7.6 이 예제에서 main.py로 확장하기\n위 코드는 main.py를 설계할 때 가장 작은 출발점이 된다.\n처음에는 Jupyter에서 bbox 하나를 직접 넣어 실행하고, 이후 같은 값을 CLI flag로 옮긴다.\n예:\npython main.py --bbox -0.2350,51.4500,-0.1700,51.4825 --site-id manual_putney_wandsworth --zoom 18 --date 2014-02-15 --output-sub-dir manual_examples/putney_wandsworth_full_pipeline\ncurrent imagery는 다음처럼 실행할 수 있다.\npython main.py --bbox -0.2350,51.4500,-0.1700,51.4825 --site-id manual_putney_wandsworth --zoom 18 --current --output-sub-dir manual_examples/putney_wandsworth_full_pipeline\n이 흐름을 이해하면 GeoPackage나 CSV를 읽어 여러 site를 반복 실행하는 main.py로 확장하기 쉽다.",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Jupyter에서 GEIDPipelineManager 직접 호출하기</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html",
+    "href": "08-running-main.html",
+    "title": "8  main.py 설계와 실행",
+    "section": "",
+    "text": "8.1 main.py의 기본 골격\nmain.py는 하나의 고정된 파일이 아니라, 프로젝트 목적에 맞게 구성하는 실행 스크립트다.\n핵심은 GEIDPipelineManager를 import하고, 그 앞뒤의 운영 정책을 사용자가 정하는 것이다.\nmain.py는 보통 다음 순서로 구성한다.\ncore.py는 이 중 4-6단계에서 사용되는 엔진이고, 1-3단계는 프로젝트마다 달라지는 운영 로직이다.",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#main.py의-기본-골격",
+    "href": "08-running-main.html#main.py의-기본-골격",
+    "title": "8  main.py 설계와 실행",
+    "section": "",
+    "text": "def main():\n    # 1. CLI 인자 또는 설정값 읽기\n    # 2. 입력 좌표, GeoPackage, CSV 등 읽기\n    # 3. target_dates 생성\n    # 4. GEIDPipelineManager 초기화\n    # 5. site별 download_roi() 호출\n    # 6. 필요하면 실제 촬영일별 patch 폴더를 merge\n    pass",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#기본-실행",
+    "href": "08-running-main.html#기본-실행",
+    "title": "8  main.py 설계와 실행",
+    "section": "8.2 기본 실행",
+    "text": "8.2 기본 실행\nJupyter에서 최소 bbox 실험이 끝났다면, 같은 값을 main.py flag로 옮길 수 있다.\n단일 bbox historical imagery 실행 예시는 다음과 같다.\nmamba activate geid\ncd E:\\workspace\\Other_nations\npython main.py --bbox 2.2945,48.8580,2.2960,48.8590 --site-id manual_bbox --zoom 18 --date 2012-12-31 --output-sub-dir manual_examples/bbox",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#현재-영상만-받기",
+    "href": "08-running-main.html#현재-영상만-받기",
+    "title": "8  main.py 설계와 실행",
+    "section": "8.3 현재 영상만 받기",
+    "text": "8.3 현재 영상만 받기\npython main.py --bbox 2.2945,48.8580,2.2960,48.8590 --site-id manual_bbox --zoom 18 --current --output-sub-dir manual_examples/bbox\nGeoPackage batch 실행용 main.py를 만들었다면 다음처럼 확장할 수 있다.\npython main.py --gpkg data/shp/sites.gpkg --zoom 18 --start-year 2021 --end-date today",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#권장-cli-인자",
+    "href": "08-running-main.html#권장-cli-인자",
+    "title": "8  main.py 설계와 실행",
+    "section": "8.4 권장 CLI 인자",
+    "text": "8.4 권장 CLI 인자\n\n--gpkg\n\nGeoPackage batch 입력을 지원하는 main.py에서 사용할 수 있는 입력 경로다. Shapefile이나 CSV를 지원하도록 만들면 --shp, --csv 같은 인자를 추가할 수 있다.\n\n--bbox\n\n최소 예제나 단일 영역 실행에 사용할 bbox 좌표다. 예: left,bottom,right,top 형식.\n\n--site-id\n\n단일 bbox 실행에서 사용할 site 이름이다. roi_name으로 전달할 수 있다.\n\n--zoom\n\nGEID zoom level이다.\n\n--date\n\n하나의 historical target date를 직접 지정할 때 사용한다.\n\n--start_year\n\nhistorical target date 생성을 시작할 연도다.\n\n--end_date\n\nhistorical target date 생성을 끝낼 날짜다. 기본값은 today로 둘 수 있다.\n\n--current_only\n\nhistorical target date 생성을 건너뛰고 current imagery만 요청한다.\n\n--output-sub-dir\n\noutput/ 아래에 결과를 저장할 하위 경로다.",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#main.py가-해야-할-일",
+    "href": "08-running-main.html#main.py가-해야-할-일",
+    "title": "8  main.py 설계와 실행",
+    "section": "8.5 main.py가 해야 할 일",
+    "text": "8.5 main.py가 해야 할 일\nmain.py는 다음 책임을 갖는다.\n\nCLI 인자 파싱\ntarget date 목록 생성\nbbox, GeoPackage, CSV 등 입력 방식 선택\n입력을 roi_gdf, roi_name, output_sub_dir로 변환\nGEIDPipelineManager 생성\ndownload_roi() 호출\n날짜별 patch 폴더를 순회하며 merge 실행\n\n반대로 core.py는 CLI 인자를 직접 알 필요가 없다.\n\n\n\n\n\n\nNote변환 지점\n\n\n\n어떤 입력 형식을 쓰든 main.py의 목표는 같다. 입력 row 또는 좌표를 roi_gdf, roi_name, output_sub_dir, target_dates, zoom으로 정리해서 download_roi()에 넘기면 된다.",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "08-running-main.html#main.py-설계-패턴",
+    "href": "08-running-main.html#main.py-설계-패턴",
+    "title": "8  main.py 설계와 실행",
+    "section": "8.6 main.py 설계 패턴",
+    "text": "8.6 main.py 설계 패턴\n\n8.6.1 패턴 1: 좌표 bbox 하나\n학습과 테스트에 가장 좋다.\n좌표 입력\n  → shapely.box()\n  → GeoDataFrame\n  → download_roi()\n\n\n8.6.2 패턴 2: GeoPackage 여러 feature\n운영 batch 처리에 적합하다.\nGeoPackage 읽기\n  → row별 feature 분리\n  → site_id와 output_sub_dir 구성\n  → site별 download_roi()\n\n\n8.6.3 패턴 3: current only\n최신 영상만 빠르게 확인할 때 사용한다.\ntarget_dates = [\"current\"]\n\n\n8.6.4 패턴 4: historical date list\n사용자가 직접 지정한 날짜만 다운로드할 때 사용한다.\ntarget_dates = [\"2021-05-15\", \"2022-05-15\", \"2023-05-15\"]\n\n\n8.6.5 패턴 5: 실패분 재실행\n실패한 site_id 목록만 따로 읽어 반복 실행할 수 있다.\n이 경우에도 core는 바뀌지 않고, main.py의 입력 목록만 달라진다.",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>main.py 설계와 실행</span>"
+    ]
+  },
+  {
+    "objectID": "14-minimal-example-project.html",
+    "href": "14-minimal-example-project.html",
+    "title": "9  매뉴얼 안의 미니멀 실행 프로젝트",
+    "section": "",
+    "text": "9.1 Bochum 미니멀 GeoPackage\n이 장은 매뉴얼 폴더 안에 들어 있는 실제 실행 가능한 미니멀 프로젝트를 보여준다.\n프로젝트 위치:\n구조:\n실행 환경은 매뉴얼 루트의 environment.yml을 사용한다. example_project는 미니멀 실행에 필요한 main.py, geid_pipeline, 입력 데이터, 출력 폴더만 담는다.\n예제 입력 파일은 다음 위치에 있다.\n이 GeoPackage에는 Bochum 시 중심부를 포함하는 작은 polygon 하나가 들어 있다.\n이 예제의 목적은 대량 처리가 아니라, main.py가 GeoPackage를 읽고 GEIDPipelineManager를 호출하는 전체 흐름을 확인하는 것이다.\n입력 GeoPackage의 범위는 아래 동적 지도에서 확인할 수 있다.\nimport geopandas as gpd\nimport folium\nfrom pathlib import Path\nfrom IPython.display import HTML, display\n\ngpkg_path = Path(\"example_project/data/shp/bochum_minimal.gpkg\")\nbochum_gdf = gpd.read_file(gpkg_path).to_crs(epsg=4326)\n\nminx, miny, maxx, maxy = bochum_gdf.total_bounds\nm_input = folium.Map(\n    location=[(miny + maxy) / 2, (minx + maxx) / 2],\n    zoom_start=13,\n    tiles=\"OpenStreetMap\",\n)\n\nfolium.GeoJson(\n    bochum_gdf,\n    name=\"bochum_minimal.gpkg\",\n    style_function=lambda feature: {\n        \"color\": \"#ffcc00\",\n        \"weight\": 3,\n        \"fillColor\": \"#ffcc00\",\n        \"fillOpacity\": 0.15,\n    },\n    tooltip=folium.GeoJsonTooltip(fields=[\"site_id\", \"group\"]),\n).add_to(m_input)\n\nfolium.LayerControl(collapsed=False).add_to(m_input)\nm_input.fit_bounds([[miny, minx], [maxy, maxx]])\n\ninput_map_path = Path(\"example_project/data/shp/bochum_minimal_input_map.html\")\nm_input.save(input_map_path)\ndisplay(HTML(f'&lt;iframe src=\"../{input_map_path.as_posix()}\" width=\"100%\" height=\"520\" style=\"border:1px solid #ddd;\"&gt;&lt;/iframe&gt;'))",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>매뉴얼 안의 미니멀 실행 프로젝트</span>"
+    ]
+  },
+  {
+    "objectID": "14-minimal-example-project.html#bochum-미니멀-geopackage",
+    "href": "14-minimal-example-project.html#bochum-미니멀-geopackage",
+    "title": "9  매뉴얼 안의 미니멀 실행 프로젝트",
+    "section": "",
+    "text": "example_project/data/shp/bochum_minimal.gpkg\n\nsite_id      group     geometry\nbochum_zl16  bochum    Polygon",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>매뉴얼 안의 미니멀 실행 프로젝트</span>"
+    ]
+  },
+  {
+    "objectID": "14-minimal-example-project.html#main.py-실행",
+    "href": "14-minimal-example-project.html#main.py-실행",
+    "title": "9  매뉴얼 안의 미니멀 실행 프로젝트",
+    "section": "9.2 main.py 실행",
+    "text": "9.2 main.py 실행\nPowerShell에서는 다음처럼 실행한다.\nmamba activate geid\ncd E:\\workspace\\geid_manual\\example_project\npython main.py --gpkg data\\shp\\bochum_minimal.gpkg --zoom 16 --current --geid-exe C:\\allmapsoft\\geid\\downloader.exe\nQuarto 렌더링 중에는 아래 chunk가 같은 실행을 수행한다. 이미 output이 있으면 다시 다운로드하지 않고 기존 결과를 사용한다.\n\nimport os\nimport subprocess\nfrom pathlib import Path\n\ngeid_env = Path(r\"C:\\Users\\USER\\.local\\share\\mamba\\envs\\geid\")\nos.environ[\"PATH\"] = (\n    str(geid_env)\n    + os.pathsep\n    + str(geid_env / \"Library\" / \"bin\")\n    + os.pathsep\n    + str(geid_env / \"Scripts\")\n    + os.pathsep\n    + os.environ.get(\"PATH\", \"\")\n)\n\nproject_dir = Path(\"example_project\")\npatch_root = project_dir / \"output\" / \"bochum\" / \"patches_bochum_zl16\"\n\ncmd = [\n    str(geid_env / \"python.exe\"),\n    \"main.py\",\n    \"--gpkg\", r\"data\\shp\\bochum_minimal.gpkg\",\n    \"--zoom\", \"16\",\n    \"--current\",\n    \"--geid-exe\", r\"C:\\allmapsoft\\geid\\downloader.exe\",\n]\n\nif not patch_root.exists() or not any(patch_root.iterdir()):\n    result = subprocess.run(cmd, cwd=project_dir, text=True, capture_output=True, check=True)\n    print(result.stdout)\nelse:\n    print(\"Existing Bochum output found. Skipping download.\")\n\nExisting Bochum output found. Skipping download.",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>매뉴얼 안의 미니멀 실행 프로젝트</span>"
+    ]
+  },
+  {
+    "objectID": "14-minimal-example-project.html#실행-결과-확인",
+    "href": "14-minimal-example-project.html#실행-결과-확인",
+    "title": "9  매뉴얼 안의 미니멀 실행 프로젝트",
+    "section": "9.3 실행 결과 확인",
+    "text": "9.3 실행 결과 확인\n\noutput_root = project_dir / \"output\" / \"bochum\"\npatch_root = output_root / \"patches_bochum_zl16\"\ndate_dirs = sorted([p for p in patch_root.iterdir() if p.is_dir()])\nmerged_tifs = sorted(output_root.glob(\"*_Merged.tif\"))\n\nprint(f\"actual-date folders: {len(date_dirs)}\")\nfor date_dir in date_dirs:\n    jpg_count = len(list(date_dir.glob(\"*.jpg\")))\n    jgw_count = len(list(date_dir.glob(\"*.jgw\")))\n    print(f\"{date_dir.name}: {jpg_count} jpg, {jgw_count} jgw\")\n\nprint(\"merged GeoTIFFs:\")\nfor tif in merged_tifs:\n    print(tif.name)\n\nactual-date folders: 3\n2021-03-31: 2 jpg, 2 jgw\n2023-05-28: 27 jpg, 27 jgw\nCurrent_Default: 6 jpg, 6 jgw\nmerged GeoTIFFs:\nbochum_zl16_2021-03-31_Merged.tif\nbochum_zl16_2023-05-28_Merged.tif\nbochum_zl16_Current_Default_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>매뉴얼 안의 미니멀 실행 프로젝트</span>"
+    ]
+  },
+  {
+    "objectID": "14-minimal-example-project.html#동적-지도",
+    "href": "14-minimal-example-project.html#동적-지도",
+    "title": "9  매뉴얼 안의 미니멀 실행 프로젝트",
+    "section": "9.4 동적 지도",
+    "text": "9.4 동적 지도\n아래 지도는 Bochum 예제의 실제 촬영일별 patch layer를 보여준다.\n\nimport folium\nfrom folium.raster_layers import ImageOverlay\nfrom folium.plugins import Fullscreen\nfrom IPython.display import HTML, display\n\ndef read_jgw_bounds(jgw_path, width=256, height=256):\n    values = [float(v.strip()) for v in Path(jgw_path).read_text().splitlines()]\n    x_scale, _, _, y_scale, top_left_x, top_left_y = values\n    min_x = top_left_x\n    max_y = top_left_y\n    max_x = min_x + width * abs(x_scale)\n    min_y = max_y - height * abs(y_scale)\n    return [[min_y, min_x], [max_y, max_x]]\n\ndef requested_targets_for_date(date_dir):\n    targets = []\n    for report_path in sorted(date_dir.glob(\"*_extraction_report.txt\")):\n        for line in report_path.read_text(encoding=\"utf-8\", errors=\"ignore\").splitlines():\n            if line.startswith(\"Requested Target\"):\n                targets.append(line.split(\":\", 1)[1].strip())\n    return sorted(set(targets))\n\nall_bounds = []\nfor jpg_path in sorted(patch_root.rglob(\"*.jpg\")):\n    jgw_path = jpg_path.with_suffix(\".jgw\")\n    if jgw_path.exists():\n        all_bounds.append(read_jgw_bounds(jgw_path))\n\nmin_lat = min(b[0][0] for b in all_bounds)\nmin_lon = min(b[0][1] for b in all_bounds)\nmax_lat = max(b[1][0] for b in all_bounds)\nmax_lon = max(b[1][1] for b in all_bounds)\n\nm = folium.Map(\n    location=[(min_lat + max_lat) / 2, (min_lon + max_lon) / 2],\n    zoom_start=13,\n    tiles=\"OpenStreetMap\",\n)\n\nfor date_dir in date_dirs:\n    requested_targets = requested_targets_for_date(date_dir)\n    target_label = \", \".join(requested_targets) if requested_targets else \"unknown target\"\n    layer_name = f\"{date_dir.name} (target: {target_label})\"\n    group = folium.FeatureGroup(name=layer_name, show=(date_dir == date_dirs[0]))\n    for jpg_path in sorted(date_dir.glob(\"*.jpg\")):\n        jgw_path = jpg_path.with_suffix(\".jgw\")\n        if not jgw_path.exists():\n            continue\n        ImageOverlay(\n            image=str(jpg_path),\n            bounds=read_jgw_bounds(jgw_path),\n            opacity=0.85,\n            interactive=False,\n            cross_origin=False,\n        ).add_to(group)\n    group.add_to(m)\n\nFullscreen().add_to(m)\nfolium.LayerControl(collapsed=False).add_to(m)\nm.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])\n\nmap_path = output_root / \"bochum_actual_date_layers.html\"\nm.save(map_path)\ndisplay(HTML(f'&lt;iframe src=\"../{map_path.as_posix()}\" width=\"100%\" height=\"650\" style=\"border:1px solid #ddd;\"&gt;&lt;/iframe&gt;'))",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>매뉴얼 안의 미니멀 실행 프로젝트</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html",
+    "href": "05-input-data.html",
+    "title": "10  입력 데이터",
+    "section": "",
+    "text": "10.1 core.py가 실제로 받는 입력\ncore.py는 GeoPackage, Shapefile, CSV 같은 파일 형식을 직접 알지 않는다.\nGEIDPipelineManager.download_roi()가 실제로 받는 값은 다음이다.\n따라서 파일을 어떻게 읽고, 어떤 컬럼을 site 이름이나 출력 폴더에 사용할지는 main.py에서 결정한다.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html#core.py가-실제로-받는-입력",
+    "href": "05-input-data.html#core.py가-실제로-받는-입력",
+    "title": "10  입력 데이터",
+    "section": "",
+    "text": "Importantcore.py의 입력 단위\n\n\n\ncore.py의 입력 단위는 파일이 아니라 이미 준비된 GeoDataFrame과 실행 인자다. GeoPackage, Shapefile, CSV를 어떻게 읽을지는 main.py 또는 Jupyter 코드에서 결정한다.\n\n\n\nroi_gdf\n\n다운로드할 ROI geometry가 들어 있는 GeoDataFrame이다.\n\nroi_name\n\nsite 또는 작업 식별자다. 출력 파일명과 task name에 사용된다.\n\noutput_sub_dir\n\noutput/ 아래에 결과를 저장할 하위 폴더다.\n\ntarget_dates\n\nGEID에 요청할 날짜 목록이다.\n\nzoom\n\n다운로드 zoom level이다.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html#main.py에서-선택할-수-있는-입력-방식",
+    "href": "05-input-data.html#main.py에서-선택할-수-있는-입력-방식",
+    "title": "10  입력 데이터",
+    "section": "10.2 main.py에서 선택할 수 있는 입력 방식",
+    "text": "10.2 main.py에서 선택할 수 있는 입력 방식\nmain.py는 프로젝트 상황에 따라 여러 입력 방식을 선택할 수 있다.\n\nbbox 좌표를 직접 입력\n단일 polygon을 코드 안에서 생성\nGeoPackage의 feature를 반복 처리\nShapefile을 읽어 처리\nCSV의 좌표 컬럼을 bbox로 변환\n실패한 site 목록만 따로 읽어 재실행\n\n가장 작은 예제는 bbox 좌표를 직접 넣는 방식이다. 여러 site를 관리해야 하는 운영 단계에서는 GeoPackage나 CSV 같은 테이블형 입력이 더 편리하다.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html#테이블형-batch-입력-예시",
+    "href": "05-input-data.html#테이블형-batch-입력-예시",
+    "title": "10  입력 데이터",
+    "section": "10.3 테이블형 batch 입력 예시",
+    "text": "10.3 테이블형 batch 입력 예시\n여러 site를 반복 처리하려면 GeoPackage, Shapefile, CSV 같은 테이블형 입력을 사용할 수 있다.\n이때 핵심은 각 row가 하나의 다운로드 대상 또는 ROI를 나타내도록 만드는 것이다.\n최소한 다음 정보가 필요하다.\n\nsite_id\n\nsite 또는 ROI 식별자다. roi_name으로 사용할 수 있다.\n\ngeometry\n\n다운로드할 ROI polygon이다. CSV를 사용할 경우에는 geometry 대신 bbox 좌표 컬럼을 둘 수 있다.\n\n\n필요하면 프로젝트에 맞는 분류 컬럼을 추가할 수 있다.\n\ngroup\n\noutput 폴더를 나누기 위한 선택 컬럼이다. 예를 들어 지역, batch 이름, 프로젝트 이름, 자료 출처 등을 넣을 수 있다.\n\n\n예시:\nsite_id      group        geometry\nsite_001     batch_a      Polygon\nsite_002     batch_a      Polygon\nsite_003     batch_b      Polygon\n이 컬럼 이름들은 정해진 규칙이 아니다. core.py의 필수 조건도 아니다.\n중요한 것은 main.py에서 각 row를 읽어 다음 값으로 변환하는 것이다.\nroi_gdf\nroi_name\noutput_sub_dir",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html#좌표계",
+    "href": "05-input-data.html#좌표계",
+    "title": "10  입력 데이터",
+    "section": "10.4 좌표계",
+    "text": "10.4 좌표계\ncore.py는 입력 geometry를 EPSG:4326으로 변환해서 처리할 수 있다.\n그래도 운영 단계에서는 입력 자료를 미리 EPSG:4326으로 맞춰두는 것이 좋다. GEID에 전달되는 bounding box가 위경도 좌표이기 때문이다.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "05-input-data.html#출력-분류-예시",
+    "href": "05-input-data.html#출력-분류-예시",
+    "title": "10  입력 데이터",
+    "section": "10.5 출력 분류 예시",
+    "text": "10.5 출력 분류 예시\nbatch 실행에서는 다음처럼 출력 폴더를 구성할 수 있다.\noutput/{group}/{site_id}/\n하지만 이것은 하나의 예시일 뿐이다.\n프로젝트에 따라 다음과 같은 구조도 가능하다.\noutput/{project_name}/{site_id}/\noutput/{batch_date}/{site_id}/\noutput/{country}/{site_id}/\n출력 구조는 main.py에서 output_sub_dir를 어떻게 만들지에 따라 달라진다.\n\n\n\n\n\n\nNote권장 schema와 필수 조건은 다르다\n\n\n\nsite_id, group, geometry는 batch 실행용 main.py를 단순하게 만들기 위한 예시 schema다. core.py가 요구하는 고정 컬럼명이 아니므로, 기존 자료의 컬럼명이 다르면 main.py에서 변환해 넘기면 된다.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>입력 데이터</span>"
+    ]
+  },
+  {
+    "objectID": "06-date-strategy.html",
+    "href": "06-date-strategy.html",
+    "title": "11  날짜 전략",
+    "section": "",
+    "text": "11.1 target date와 actual capture date\n이 파이프라인에서는 두 날짜를 구분한다.\n두 날짜는 다를 수 있다. 더 중요한 점은, 하나의 target_date 요청 결과 안에서도 실제 타일 촬영일이 여러 개일 수 있다는 것이다.",
+    "crumbs": [
+      "<span class='chapter-number'>11</span>  <span class='chapter-title'>날짜 전략</span>"
+    ]
+  },
+  {
+    "objectID": "06-date-strategy.html#target-date와-actual-capture-date",
+    "href": "06-date-strategy.html#target-date와-actual-capture-date",
+    "title": "11  날짜 전략",
+    "section": "",
+    "text": "target_date\n\n사용자가 GEID에 요청하는 기준 날짜다.\n\nactual_capture_date\n\nGEID 로그에 기록된 실제 이미지 타일의 촬영일이다.",
+    "crumbs": [
+      "<span class='chapter-number'>11</span>  <span class='chapter-title'>날짜 전략</span>"
+    ]
+  },
+  {
+    "objectID": "06-date-strategy.html#generate_target_dates",
+    "href": "06-date-strategy.html#generate_target_dates",
+    "title": "11  날짜 전략",
+    "section": "11.2 generate_target_dates()",
+    "text": "11.2 generate_target_dates()\ntarget date 목록은 main.py에서 생성하는 것이 좋다.\n\n\n\n\n\n\nNote날짜 범위는 main.py의 정책\n\n\n\nstart_year, end_date, target_months 같은 날짜 범위 설정은 운영 정책이다. core.py는 이 범위를 직접 해석하지 않고, 이미 만들어진 target_dates 리스트만 받는다.\n\n\n예시 함수:\ndef generate_target_dates(start_year: int, end_date_str: str, target_months: list, day: int = 15) -&gt; list:\n    ...\n예시 사용:\ntarget_dates = generate_target_dates(\n    start_year=args.start_year,\n    end_date_str=args.end_date,\n    target_months=[5, 8, 11],\n)\n이 함수의 리턴값은 문자열 리스트다.\n예를 들어 start_year=2021, end_date_str=\"2022-12-31\", target_months=[5, 8, 11], day=15라면 다음과 같은 값이 만들어질 수 있다.\n[\n    \"2021-05-15\",\n    \"2021-08-15\",\n    \"2021-11-15\",\n    \"2022-05-15\",\n    \"2022-08-15\",\n    \"2022-11-15\",\n]\nend_date_str=\"today\" 또는 \"now\"를 쓰는 구현에서는 마지막에 current imagery 요청을 위한 \"current\"를 추가할 수 있다.\n[\n    \"2021-05-15\",\n    \"2021-08-15\",\n    \"2021-11-15\",\n    \"...\",\n    \"current\",\n]\n초기 구현에서는 --start_year와 \"today\" 조합만 써도 된다. 다만 장기적으로는 --end_date도 CLI 인자로 받는 편이 운영 문서에는 더 명확하다.",
+    "crumbs": [
+      "<span class='chapter-number'>11</span>  <span class='chapter-title'>날짜 전략</span>"
+    ]
+  },
+  {
+    "objectID": "06-date-strategy.html#download_roi의-target_dates-인자와-연결",
+    "href": "06-date-strategy.html#download_roi의-target_dates-인자와-연결",
+    "title": "11  날짜 전략",
+    "section": "11.3 download_roi()의 target_dates 인자와 연결",
+    "text": "11.3 download_roi()의 target_dates 인자와 연결\ncore.py는 시작일과 종료일을 직접 받지 않는다.\n대신 main.py에서 생성한 날짜 목록을 받는다.\npipeline.download_roi(\n    roi_gdf=roi_gdf,\n    roi_name=roi_name,\n    output_sub_dir=output_sub_dir,\n    target_dates=target_dates,\n    zoom=args.zoom,\n)\n즉 generate_target_dates()의 리턴값이 download_roi()의 target_dates 인자로 그대로 들어간다.\n역할을 나누면 다음과 같다.\nmain.py\n  start_year, end_date, target_months를 해석\n  → target_dates 리스트 생성\n\ncore.py\n  target_dates 리스트를 순회\n  → 각 target_date마다 GEID CLI 호출\ncore.py는 날짜 범위를 계산하지 않는다. 이미 만들어진 target_dates를 받아 실행만 담당한다.",
+    "crumbs": [
+      "<span class='chapter-number'>11</span>  <span class='chapter-title'>날짜 전략</span>"
+    ]
+  },
+  {
+    "objectID": "06-date-strategy.html#실제-촬영일-기준-저장",
+    "href": "06-date-strategy.html#실제-촬영일-기준-저장",
+    "title": "11  날짜 전략",
+    "section": "11.4 실제 촬영일 기준 저장",
+    "text": "11.4 실제 촬영일 기준 저장\ncore.py는 GEID 로그를 읽어서 각 패치를 실제 촬영일 폴더에 넣는다.\npatches_{site_id}/\n├── 2021-05-11/\n├── 2021-04-29/\n└── Current_Default/\n이 구조는 여러 target date를 요청했을 때 같은 실제 타일이 중복 저장되는 것을 줄이기 위한 설계다.",
+    "crumbs": [
+      "<span class='chapter-number'>11</span>  <span class='chapter-title'>날짜 전략</span>"
+    ]
+  },
+  {
+    "objectID": "10-merge-strategy.html",
+    "href": "10-merge-strategy.html",
+    "title": "12  merge 전략",
+    "section": "",
+    "text": "12.1 기본 원칙\n기본 merge는 target date 기준이 아니라 actual capture date 기준으로 수행한다.\nGEID/Google Earth에서는 하나의 target date를 요청해도 실제 반환되는 tile의 촬영일이 여러 개로 나뉠 수 있다.\n예:\n이 tile들을 모두 site_001_2014-02-15_Merged.tif로 합치면, 파일명은 2014년 2월 15일처럼 보이지만 실제 내용은 여러 촬영일이 섞인 raster가 된다.\n따라서 기본 산출물은 다음처럼 actual date별로 만든다.",
+    "crumbs": [
+      "<span class='chapter-number'>12</span>  <span class='chapter-title'>merge 전략</span>"
+    ]
+  },
+  {
+    "objectID": "10-merge-strategy.html#기본-원칙",
+    "href": "10-merge-strategy.html#기본-원칙",
+    "title": "12  merge 전략",
+    "section": "",
+    "text": "target_date = 2014-02-15\n\nreturned tiles:\n  tile A → 2014-02-13\n  tile B → 2014-02-13\n  tile C → 2013-07-19\n  tile D → 2020-04-11\n\n\nsite_001_2014-02-13_Merged.tif\nsite_001_2013-07-19_Merged.tif\nsite_001_2020-04-11_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>12</span>  <span class='chapter-title'>merge 전략</span>"
+    ]
+  },
+  {
+    "objectID": "10-merge-strategy.html#download와-merge는-분리된다",
+    "href": "10-merge-strategy.html#download와-merge는-분리된다",
+    "title": "12  merge 전략",
+    "section": "12.2 download와 merge는 분리된다",
+    "text": "12.2 download와 merge는 분리된다\ndownload_roi()는 다운로드와 분류를 담당한다.\ndownload_roi()\n  → GEID downloader.exe 실행\n  → GEID log 읽기\n  → jpg/jgw patch를 actual date별 폴더로 이동\nmerge_patches()는 자동으로 실행되지 않는다.\nmerge_patches()\n  → 전달받은 한 폴더 안의 jpg/jgw patch를 하나의 raster array로 병합\n즉 날짜별 GeoTIFF를 만들려면 main.py에서 actual-date 폴더를 순회하며 merge를 명시적으로 트리거해야 한다.\n\n\n\n\n\n\nWarningmerge는 명시적으로 실행한다\n\n\n\ndownload_roi()는 patch 다운로드와 실제 촬영일별 분류까지 담당한다. 날짜별 GeoTIFF가 필요하면 main.py에서 actual-date 폴더를 하나씩 넘겨 merge_patches()와 convert_to_geotiff()를 호출해야 한다.",
+    "crumbs": [
+      "<span class='chapter-number'>12</span>  <span class='chapter-title'>merge 전략</span>"
+    ]
+  },
+  {
+    "objectID": "10-merge-strategy.html#날짜별-merge-예시",
+    "href": "10-merge-strategy.html#날짜별-merge-예시",
+    "title": "12  merge 전략",
+    "section": "12.3 날짜별 merge 예시",
+    "text": "12.3 날짜별 merge 예시\n다운로드 후 patch 구조가 다음과 같다고 하자.\noutput/demo/site_001/\n└── patches_site_001/\n    ├── 2014-02-13/\n    │   ├── *.jpg\n    │   └── *.jgw\n    ├── 2013-07-19/\n    │   ├── *.jpg\n    │   └── *.jgw\n    └── Current_Default/\n        ├── *.jpg\n        └── *.jgw\nmain.py는 각 actual-date 폴더를 하나씩 merge한다.\ndef merge_actual_date_folders(pipeline, patch_root, output_root, site_id):\n    for folder_path in sorted(p for p in patch_root.iterdir() if p.is_dir()):\n        actual_date = folder_path.name\n        output_tif = output_root / f\"{site_id}_{actual_date}_Merged.tif\"\n\n        if output_tif.exists():\n            continue\n\n        image_array, meta = pipeline.merge_patches(\n            target_folder=str(folder_path),\n            output_filename=f\"temp_{actual_date}\",\n        )\n\n        pipeline.convert_to_geotiff(\n            image_array=image_array,\n            meta=meta,\n            output_path=str(output_tif),\n        )\n결과:\noutput/demo/site_001/\n├── site_001_2014-02-13_Merged.tif\n├── site_001_2013-07-19_Merged.tif\n└── site_001_Current_Default_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>12</span>  <span class='chapter-title'>merge 전략</span>"
+    ]
+  },
+  {
+    "objectID": "10-merge-strategy.html#main.py와-core.py의-역할",
+    "href": "10-merge-strategy.html#main.py와-core.py의-역할",
+    "title": "12  merge 전략",
+    "section": "12.4 main.py와 core.py의 역할",
+    "text": "12.4 main.py와 core.py의 역할\n역할은 다음처럼 나누는 것이 좋다.\ncore.py\n  → merge_patches() 제공\n  → convert_to_geotiff() 제공\n  → 어떤 폴더를 merge할지는 결정하지 않음\n\nmain.py\n  → download_roi() 호출\n  → actual-date 폴더 순회\n  → merge_patches() 호출 시점 결정\n  → 이미 생성된 _Merged.tif는 skip할지 결정\n이렇게 나누면 main.py에서 프로젝트별 운영 방식을 선택하기 쉽다.\n\n다운로드 직후 날짜별 merge 실행\npatch만 저장하고 나중에 merge 실행\n특정 actual date 폴더만 merge\n이미 _Merged.tif가 있으면 skip",
+    "crumbs": [
+      "<span class='chapter-number'>12</span>  <span class='chapter-title'>merge 전략</span>"
+    ]
+  },
+  {
+    "objectID": "11-outputs-qc.html",
+    "href": "11-outputs-qc.html",
+    "title": "13  산출물과 검수",
+    "section": "",
+    "text": "13.1 날짜별 patch 폴더\nGEID 로그 파싱 후 patch는 실제 촬영일별로 저장된다.\n일반적인 구조는 다음과 같다.\n예:",
+    "crumbs": [
+      "<span class='chapter-number'>13</span>  <span class='chapter-title'>산출물과 검수</span>"
+    ]
+  },
+  {
+    "objectID": "11-outputs-qc.html#날짜별-patch-폴더",
+    "href": "11-outputs-qc.html#날짜별-patch-폴더",
+    "title": "13  산출물과 검수",
+    "section": "",
+    "text": "output/{output_sub_dir}/\n└── patches_{site_id}/\n    └── {actual_date}/\n        ├── *.jpg\n        ├── *.jgw\n        └── {site_id}_extraction_report.txt\n\noutput/bochum/\n└── patches_bochum_zl16/\n    ├── 2023-05-28/\n    │   ├── *.jpg\n    │   ├── *.jgw\n    │   └── bochum_zl16_extraction_report.txt\n    └── Current_Default/\n        ├── *.jpg\n        ├── *.jgw\n        └── bochum_zl16_extraction_report.txt",
+    "crumbs": [
+      "<span class='chapter-number'>13</span>  <span class='chapter-title'>산출물과 검수</span>"
+    ]
+  },
+  {
+    "objectID": "11-outputs-qc.html#날짜별-geotiff",
+    "href": "11-outputs-qc.html#날짜별-geotiff",
+    "title": "13  산출물과 검수",
+    "section": "13.2 날짜별 GeoTIFF",
+    "text": "13.2 날짜별 GeoTIFF\nmain.py가 actual-date 폴더별로 merge_patches()를 호출하면 다음 파일이 생성된다.\noutput/{output_sub_dir}/\n└── {site_id}_{actual_date}_Merged.tif\n예:\nbochum_zl16_2023-05-28_Merged.tif\nbochum_zl16_Current_Default_Merged.tif",
+    "crumbs": [
+      "<span class='chapter-number'>13</span>  <span class='chapter-title'>산출물과 검수</span>"
+    ]
+  },
+  {
+    "objectID": "11-outputs-qc.html#extraction-report",
+    "href": "11-outputs-qc.html#extraction-report",
+    "title": "13  산출물과 검수",
+    "section": "13.3 extraction report",
+    "text": "13.3 extraction report\n각 actual-date 폴더의 report에는 다음 정보가 포함된다.\n\n작업 실행 시간\ntask identifier\n요청 target date\n실제 capture date\nzoom level\nbbox\n발견된 patch 수\n원본 GEID log line\n\n이 report는 “요청 날짜”와 “실제 촬영일”이 어떻게 달라졌는지 확인하는 가장 중요한 검수 자료다.",
+    "crumbs": [
+      "<span class='chapter-number'>13</span>  <span class='chapter-title'>산출물과 검수</span>"
+    ]
+  },
+  {
+    "objectID": "11-outputs-qc.html#검수-체크리스트",
+    "href": "11-outputs-qc.html#검수-체크리스트",
+    "title": "13  산출물과 검수",
+    "section": "13.4 검수 체크리스트",
+    "text": "13.4 검수 체크리스트\n\nactual-date 폴더가 생성되었는가?\n.jpg와 .jgw가 같은 파일명 쌍으로 존재하는가?\nreport의 Requested Target과 Actual Capture Date가 예상 범위 안에 있는가?\nactual-date별 patch 수가 비정상적으로 적거나 많지 않은가?\n_Merged.tif가 필요한 actual-date마다 생성되었는가?\nGeoTIFF가 GIS에서 올바른 위치에 열리는가?\nCurrent_Default가 expected current imagery 결과인지, historical 요청에서 생긴 예외인지 확인했는가?",
+    "crumbs": [
+      "<span class='chapter-number'>13</span>  <span class='chapter-title'>산출물과 검수</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html",
+    "href": "13-troubleshooting.html",
+    "title": "14  문제 해결",
+    "section": "",
+    "text": "14.1 downloader.exe를 찾지 못하는 경우\n오류:\n해결:",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#downloader.exe를-찾지-못하는-경우",
+    "href": "13-troubleshooting.html#downloader.exe를-찾지-못하는-경우",
+    "title": "14  문제 해결",
+    "section": "",
+    "text": "Executable not found: downloader.exe\n\n\ndownloader.exe가 PATH에 있는지 확인한다.\n또는 GEIDPipelineManager 초기화 시 절대경로를 넘긴다.\n\npipeline = GEIDPipelineManager(\n    base_dir=str(base_dir),\n    geid_exe_path=r\"C:\\allmapsoft\\geid\\downloader.exe\",\n)",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#입력-컬럼이-맞지-않는-경우",
+    "href": "13-troubleshooting.html#입력-컬럼이-맞지-않는-경우",
+    "title": "14  문제 해결",
+    "section": "14.2 입력 컬럼이 맞지 않는 경우",
+    "text": "14.2 입력 컬럼이 맞지 않는 경우\ncore.py는 특정 컬럼명을 요구하지 않는다. 하지만 main.py가 GeoPackage나 CSV를 batch 입력으로 읽는다면, main.py가 기대하는 컬럼이 있어야 한다.\n\n\n\n\n\n\nTip컬럼 오류를 보는 방법\n\n\n\n컬럼 오류는 대개 core.py 문제가 아니라 main.py의 입력 변환 문제다. 입력 row에서 roi_gdf, roi_name, output_sub_dir를 만들 수 있는지 먼저 확인한다.\n\n\n예를 들어 이 매뉴얼의 미니멀 프로젝트는 다음 컬럼을 사용한다.\nsite_id\ngroup\ngeometry\n다른 프로젝트에서는 컬럼명이 달라도 된다. 중요한 것은 main.py가 각 row를 다음 값으로 변환할 수 있어야 한다는 점이다.\nroi_gdf\nroi_name\noutput_sub_dir",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#jpg-patch가-없다는-오류",
+    "href": "13-troubleshooting.html#jpg-patch가-없다는-오류",
+    "title": "14  문제 해결",
+    "section": "14.3 JPG patch가 없다는 오류",
+    "text": "14.3 JPG patch가 없다는 오류\n가능한 원인:\n\nGEID 다운로드가 실패했다.\nbbox가 너무 작거나 잘못되어 다운로드 대상 tile이 없다.\nGEID 로그 형식이 예상과 다르다.\n_parse_log_and_relocate()가 파일명을 매핑하지 못했다.\n이미 다른 위치로 이동된 폴더를 merge 대상으로 넘겼다.\n\n먼저 actual-date 폴더 안에 .jpg와 .jgw가 있는지 확인한다.\noutput/{output_sub_dir}/patches_{site_id}/{actual_date}/",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#jgw-파일이-없는-경우",
+    "href": "13-troubleshooting.html#jgw-파일이-없는-경우",
+    "title": "14  문제 해결",
+    "section": "14.4 JGW 파일이 없는 경우",
+    "text": "14.4 JGW 파일이 없는 경우\nmerge_patches()는 .jpg와 같은 위치에 있는 .jgw world file을 사용한다.\n.jpg만 있고 .jgw가 없다면 GEID GUI에서 다음 옵션이 켜져 있는지 확인한다.\nOptions\n└── Create .jgw file for each jpg tile\n옵션을 켠 뒤 해당 ROI를 다시 다운로드한다.",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#merge-결과가-생성되지-않는-경우",
+    "href": "13-troubleshooting.html#merge-결과가-생성되지-않는-경우",
+    "title": "14  문제 해결",
+    "section": "14.5 merge 결과가 생성되지 않는 경우",
+    "text": "14.5 merge 결과가 생성되지 않는 경우\nmerge_patches()는 자동 실행되지 않는다.\ndownload_roi() 뒤에 main.py가 actual-date 폴더를 순회하며 merge_patches()와 convert_to_geotiff()를 호출해야 한다.\n확인할 것:\n\npatch_root 경로가 맞는가?\nactual-date 폴더가 존재하는가?\n폴더 안에 .jpg와 .jgw가 함께 있는가?\n이미 같은 이름의 _Merged.tif가 있어 skip된 것은 아닌가?",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#current_default가-너무-많이-생기는-경우",
+    "href": "13-troubleshooting.html#current_default가-너무-많이-생기는-경우",
+    "title": "14  문제 해결",
+    "section": "14.6 Current_Default가 너무 많이 생기는 경우",
+    "text": "14.6 Current_Default가 너무 많이 생기는 경우\nCurrent_Default는 GEID 로그에 날짜가 없는 tile을 의미한다.\ncurrent imagery 요청에서는 자연스러울 수 있다. 다만 historical 요청에서도 많이 발생하면 GEID 로그 형식과 regex를 확인해야 한다.",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "13-troubleshooting.html#quarto가-path에서-실행되지-않는-경우",
+    "href": "13-troubleshooting.html#quarto가-path에서-실행되지-않는-경우",
+    "title": "14  문제 해결",
+    "section": "14.7 Quarto가 PATH에서 실행되지 않는 경우",
+    "text": "14.7 Quarto가 PATH에서 실행되지 않는 경우\n절대경로로 실행한다.\n& \"C:\\Program Files\\Quarto\\bin\\quarto.exe\" render",
+    "crumbs": [
+      "<span class='chapter-number'>14</span>  <span class='chapter-title'>문제 해결</span>"
+    ]
+  },
+  {
+    "objectID": "appendix.html",
+    "href": "appendix.html",
+    "title": "15  부록: 함수와 클래스 요약",
+    "section": "",
+    "text": "15.1 main.py\n이 절의 함수들은 고정 API가 아니라, 이 매뉴얼에서 제안하는 main.py 설계 패턴이다. 프로젝트에 따라 함수 이름, CLI 인자, 입력 schema, 출력 폴더 규칙은 바뀔 수 있다.",
+    "crumbs": [
+      "<span class='chapter-number'>15</span>  <span class='chapter-title'>부록: 함수와 클래스 요약</span>"
+    ]
+  },
+  {
+    "objectID": "appendix.html#main.py",
+    "href": "appendix.html#main.py",
+    "title": "15  부록: 함수와 클래스 요약",
+    "section": "",
+    "text": "Notemain.py는 프로젝트별 운전석\n\n\n\nmain.py의 역할은 사용자의 작업 목적에 맞게 입력과 실행 정책을 정리해 GEIDPipelineManager에 넘기는 것이다. 따라서 여기의 함수 목록은 “반드시 이렇게 구현해야 한다”는 규칙이 아니라, 재사용하기 쉬운 구성 예시로 보면 된다.\n\n\n\ngenerate_target_dates(start_year, end_date_str, target_months, day=15)\n\ntarget date 목록을 만드는 helper 함수 예시다. 리턴값은 [\"2021-05-15\", \"2021-08-15\", \"current\"] 같은 문자열 리스트이며, download_roi(target_dates=...)로 전달된다. 프로젝트에 따라 월 목록, 종료일 처리, current 포함 여부는 다르게 구현할 수 있다.\n\nmain()\n\n사용자 실행 진입점의 예시다. CLI 인자 또는 설정값을 읽고, 입력 자료를 roi_gdf, roi_name, output_sub_dir로 변환하고, GEIDPipelineManager를 생성해 site별 다운로드를 실행한다. 필요한 경우 actual-date 폴더를 순회하며 날짜별 merge도 트리거한다.\n\nmerge_actual_date_folders(pipeline, patch_root, output_root, site_id)\n\nactual-date 폴더를 하나씩 돌면서 merge_patches()와 convert_to_geotiff()를 호출하는 main-side helper 함수 예시다. 이 함수는 core의 필수 함수가 아니라 운영 스크립트에서 정하는 merge 정책이다.",
+    "crumbs": [
+      "<span class='chapter-number'>15</span>  <span class='chapter-title'>부록: 함수와 클래스 요약</span>"
+    ]
+  },
+  {
+    "objectID": "appendix.html#geid_pipelinecore.py",
+    "href": "appendix.html#geid_pipelinecore.py",
+    "title": "15  부록: 함수와 클래스 요약",
+    "section": "15.2 geid_pipeline/core.py",
+    "text": "15.2 geid_pipeline/core.py\n\nGEIDPipelineManager\n\nGEID 자동화의 핵심 클래스다.\n\n_calculate_fill_ratio(gdf)\n\nROI polygon이 bounding box를 얼마나 채우는지 계산한다.\n\n_generate_dynamic_grid(bounds, zoom)\n\nROI를 GEID 요청에 적합한 grid chunk로 나눈다.\n\n_wait_for_completion(temp_dir, task_name, process, timeout_sec=3600)\n\nGEID 외부 프로세스가 끝날 때까지 기다린다.\n\n_parse_log_and_relocate(...)\n\nGEID 로그를 읽어 파일명과 실제 촬영일을 매핑하고, .jpg/.jgw를 실제 촬영일 폴더로 이동한다.\n\ndownload_roi(roi_gdf, roi_name, output_sub_dir, target_dates, zoom)\n\n하나의 ROI/site에 대해 여러 target date와 bbox chunk를 순회하며 GEID를 실행한다. 이 메서드는 patch 분류까지 수행하지만, 날짜별 GeoTIFF merge를 자동 실행하지는 않는다.\n\nmerge_patches(target_folder, output_filename)\n\n전달받은 폴더 안의 .jpg 파일을 하나의 raster array로 merge한다. 날짜별 merge가 되려면 main.py가 actual-date 폴더를 하나씩 넘겨야 한다.\n\nconvert_to_geotiff(image_array, meta, output_path)\n\nmerge 결과를 GeoTIFF로 저장한다.",
+    "crumbs": [
+      "<span class='chapter-number'>15</span>  <span class='chapter-title'>부록: 함수와 클래스 요약</span>"
+    ]
+  }
+]

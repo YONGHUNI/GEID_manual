@@ -1,0 +1,72 @@
+# 산출물과 검수
+
+## 날짜별 patch 폴더
+
+GEID 로그 파싱 후 patch는 실제 촬영일별로 저장된다.
+
+일반적인 구조는 다음과 같다.
+
+```text
+output/{output_sub_dir}/
+└── patches_{site_id}/
+    └── {actual_date}/
+        ├── *.jpg
+        ├── *.jgw
+        └── {site_id}_extraction_report.txt
+```
+
+예:
+
+```text
+output/bochum/
+└── patches_bochum_zl16/
+    ├── 2023-05-28/
+    │   ├── *.jpg
+    │   ├── *.jgw
+    │   └── bochum_zl16_extraction_report.txt
+    └── Current_Default/
+        ├── *.jpg
+        ├── *.jgw
+        └── bochum_zl16_extraction_report.txt
+```
+
+## 날짜별 GeoTIFF
+
+`main.py`가 actual-date 폴더별로 `merge_patches()`를 호출하면 다음 파일이 생성된다.
+
+```text
+output/{output_sub_dir}/
+└── {site_id}_{actual_date}_Merged.tif
+```
+
+예:
+
+```text
+bochum_zl16_2023-05-28_Merged.tif
+bochum_zl16_Current_Default_Merged.tif
+```
+
+## extraction report
+
+각 actual-date 폴더의 report에는 다음 정보가 포함된다.
+
+- 작업 실행 시간
+- task identifier
+- 요청 target date
+- 실제 capture date
+- zoom level
+- bbox
+- 발견된 patch 수
+- 원본 GEID log line
+
+이 report는 “요청 날짜”와 “실제 촬영일”이 어떻게 달라졌는지 확인하는 가장 중요한 검수 자료다.
+
+## 검수 체크리스트
+
+- actual-date 폴더가 생성되었는가?
+- `.jpg`와 `.jgw`가 같은 파일명 쌍으로 존재하는가?
+- report의 `Requested Target`과 `Actual Capture Date`가 예상 범위 안에 있는가?
+- actual-date별 patch 수가 비정상적으로 적거나 많지 않은가?
+- `_Merged.tif`가 필요한 actual-date마다 생성되었는가?
+- GeoTIFF가 GIS에서 올바른 위치에 열리는가?
+- `Current_Default`가 expected current imagery 결과인지, historical 요청에서 생긴 예외인지 확인했는가?
