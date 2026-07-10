@@ -411,14 +411,23 @@ GEID 로그를 읽고, 실제 촬영일별로 <code>.jpg</code>와 <code>.jgw</c
 
 </main> <!-- /main -->
 <script>
+
 document.addEventListener("DOMContentLoaded", () => {
+
   document.querySelectorAll(".quarto-title-meta-heading").forEach((heading) => {
+
     if (heading.textContent.trim() === "Published") {
+
       heading.textContent = "Last modified";
+
     }
+
   });
+
 });
+
 </script>
+
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

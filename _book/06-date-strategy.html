@@ -371,14 +371,23 @@ core.py
 
 </main> <!-- /main -->
 <script>
+
 document.addEventListener("DOMContentLoaded", () => {
+
   document.querySelectorAll(".quarto-title-meta-heading").forEach((heading) => {
+
     if (heading.textContent.trim() === "Published") {
+
       heading.textContent = "Last modified";
+
     }
+
   });
+
 });
+
 </script>
+
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

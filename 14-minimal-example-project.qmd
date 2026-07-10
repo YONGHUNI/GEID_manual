@@ -78,7 +78,7 @@ m_input.fit_bounds([[miny, minx], [maxy, maxx]])
 
 input_map_path = Path("example_project/data/shp/bochum_minimal_input_map.html")
 m_input.save(input_map_path)
-display(HTML(f'<iframe src="../{input_map_path.as_posix()}" width="100%" height="520" style="border:1px solid #ddd;"></iframe>'))
+display(HTML(f'<iframe src="{input_map_path.as_posix()}" width="100%" height="520" style="border:1px solid #ddd;"></iframe>'))
 ```
 
 ## main.py 실행
@@ -221,5 +221,5 @@ m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
 
 map_path = output_root / "bochum_actual_date_layers.html"
 m.save(map_path)
-display(HTML(f'<iframe src="../{map_path.as_posix()}" width="100%" height="650" style="border:1px solid #ddd;"></iframe>'))
+display(HTML(f'<iframe src="{map_path.as_posix()}" width="100%" height="650" style="border:1px solid #ddd;"></iframe>'))
 ```

@@ -1,6 +1,10 @@
 project:
   type: book
   output-dir: _book
+  resources:
+    - example_project/data/shp/**
+    - example_project/output/**
+    - output/**
 
 book:
   title: "GEID Python 자동화 매뉴얼"

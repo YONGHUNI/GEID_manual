@@ -406,7 +406,7 @@ zoom             18</code></pre>
 <li>날짜 폴더별 merge 가능 구조 생성</li>
 </ul>
 <p>아래 Quarto Python chunk는 같은 작업을 문서 안에서 직접 수행한다. 이미 결과 폴더가 있으면 다시 다운로드하지 않고 기존 결과를 사용한다.</p>
-<div id="dc6fe946" class="cell" data-execution_count="1">
+<div id="fedd6a59" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> sys</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -486,7 +486,7 @@ zoom             18</code></pre>
 <span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"patch root: </span><span class="sc">{</span>patch_root<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"actual-date folders: </span><span class="sc">{</span><span class="bu">len</span>([p <span class="cf">for</span> p <span class="kw">in</span> patch_root.iterdir() <span class="cf">if</span> p.is_dir()])<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>patch root: E:\workspace\geid_manual\output\manual_examples\putney_wandsworth_full_pipeline\patches_manual_putney_wandsworth
+<pre><code>patch root: C:\Users\USER\Downloads\test\GEID_manual\output\manual_examples\putney_wandsworth_full_pipeline\patches_manual_putney_wandsworth
 actual-date folders: 5</code></pre>
 </div>
 </div>
@@ -543,7 +543,7 @@ actual-date folders: 5</code></pre>
 <p>아래 결과는 Putney-Wandsworth bbox에 대해 다음 target date 목록을 실행한 예시다.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>target_dates <span class="op">=</span> [<span class="st">"current"</span>, <span class="st">"2014-02-15"</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Quarto는 위 Python chunk로 예제 결과를 만들고, 아래 chunk에서 그 결과를 읽어 문서에 표시한다.</p>
-<div id="df6f2759" class="cell" data-execution_count="2">
+<div id="60654a03" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>root <span class="op">=</span> Path(<span class="st">"output/manual_examples/putney_wandsworth_full_pipeline"</span>)</span>
@@ -561,7 +561,7 @@ merged GeoTIFF files: 5</code></pre>
 </div>
 </div>
 <p>실제 촬영일 기준으로 만들어진 폴더는 다음과 같다.</p>
-<div id="39a39e92" class="cell" data-execution_count="3">
+<div id="125387b5" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> date_dir <span class="kw">in</span> date_dirs:</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    jpg_count <span class="op">=</span> <span class="bu">len</span>(<span class="bu">list</span>(date_dir.glob(<span class="st">"*.jpg"</span>)))</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    jgw_count <span class="op">=</span> <span class="bu">len</span>(<span class="bu">list</span>(date_dir.glob(<span class="st">"*.jgw"</span>)))</span>
@@ -578,7 +578,7 @@ Current_Default: 43 jpg, 43 jgw, 1 report</code></pre>
 <p>이 예제에서는 <code>2014-02-15</code>를 요청하더라도 GEID 로그에 기록된 실제 촬영일 기준으로 patch가 저장된다.</p>
 <p>특히 한 target 시점 안에서도 여러 실제 촬영일 폴더가 만들어질 수 있다. 이 부분이 실제 촬영일 기준 분류가 필요한 이유를 보여준다.</p>
 <p>생성된 날짜별 merged GeoTIFF는 다음과 같다.</p>
-<div id="33b7fbc1" class="cell" data-execution_count="4">
+<div id="3c327259" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> path <span class="kw">in</span> merged_tifs:</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(path.relative_to(root))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
@@ -594,7 +594,7 @@ manual_putney_wandsworth_Current_Default_Merged.tif</code></pre>
 <h2 data-number="7.5" class="anchored" data-anchor-id="날짜별-patch를-동적-지도로-보기"><span class="header-section-number">7.5</span> 날짜별 patch를 동적 지도로 보기</h2>
 <p>날짜별로 분류된 patch를 동적 지도에 올리면 실제 촬영일 경계가 훨씬 직관적으로 보인다.</p>
 <p>아래 chunk는 각 <code>.jpg</code>의 <code>.jgw</code> world file을 읽어 tile bounds를 계산하고, 실제 촬영일 폴더별로 Leaflet layer를 만든다.</p>
-<div id="f54055b8" class="cell" data-execution_count="5">
+<div id="84ec55fb" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> folium</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> folium.raster_layers <span class="im">import</span> ImageOverlay</span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> folium.plugins <span class="im">import</span> Fullscreen</span>
@@ -673,7 +673,7 @@ manual_putney_wandsworth_Current_Default_Merged.tif</code></pre>
 </div>
 </div>
 <p>샘플 patch 하나를 문서에 표시하면 다음과 같다.</p>
-<div id="6ad665f3" class="cell" data-execution_count="6">
+<div id="62d94873" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> Image, display</span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>jpg_files <span class="op">=</span> <span class="bu">sorted</span>(patch_root.rglob(<span class="st">"*.jpg"</span>))</span>
@@ -702,14 +702,23 @@ manual_putney_wandsworth_Current_Default_Merged.tif</code></pre>
 
 </main> <!-- /main -->
 <script>
+
 document.addEventListener("DOMContentLoaded", () => {
+
   document.querySelectorAll(".quarto-title-meta-heading").forEach((heading) => {
+
     if (heading.textContent.trim() === "Published") {
+
       heading.textContent = "Last modified";
+
     }
+
   });
+
 });
+
 </script>
+
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

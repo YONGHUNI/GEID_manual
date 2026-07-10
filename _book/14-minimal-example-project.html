@@ -301,7 +301,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 bochum_zl16  bochum    Polygon</code></pre>
 <p>이 예제의 목적은 대량 처리가 아니라, <code>main.py</code>가 GeoPackage를 읽고 <code>GEIDPipelineManager</code>를 호출하는 전체 흐름을 확인하는 것이다.</p>
 <p>입력 GeoPackage의 범위는 아래 동적 지도에서 확인할 수 있다.</p>
-<div id="638cfd30" class="cell" data-execution_count="1">
+<div id="25777086" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> geopandas <span class="im">as</span> gpd</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> folium</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -334,9 +334,9 @@ bochum_zl16  bochum    Polygon</code></pre>
 <span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>input_map_path <span class="op">=</span> Path(<span class="st">"example_project/data/shp/bochum_minimal_input_map.html"</span>)</span>
 <span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>m_input.save(input_map_path)</span>
-<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>display(HTML(<span class="ss">f'&lt;iframe src="../</span><span class="sc">{</span>input_map_path<span class="sc">.</span>as_posix()<span class="sc">}</span><span class="ss">" width="100%" height="520" style="border:1px solid #ddd;"&gt;&lt;/iframe&gt;'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>display(HTML(<span class="ss">f'&lt;iframe src="</span><span class="sc">{</span>input_map_path<span class="sc">.</span>as_posix()<span class="sc">}</span><span class="ss">" width="100%" height="520" style="border:1px solid #ddd;"&gt;&lt;/iframe&gt;'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display">
-<iframe src="../example_project/data/shp/bochum_minimal_input_map.html" width="100%" height="520" style="border:1px solid #ddd;"></iframe>
+<iframe src="example_project/data/shp/bochum_minimal_input_map.html" width="100%" height="520" style="border:1px solid #ddd;"></iframe>
 </div>
 </div>
 </section>
@@ -347,7 +347,7 @@ bochum_zl16  bochum    Polygon</code></pre>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cd</span> E<span class="op">:</span>\workspace\geid_manual\example_project</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>python main<span class="op">.</span><span class="fu">py</span> <span class="op">--</span>gpkg <span class="kw">data</span>\shp\bochum_minimal<span class="op">.</span><span class="fu">gpkg</span> <span class="op">--</span>zoom <span class="dv">16</span> <span class="op">--</span>current <span class="op">--</span>geid-exe C<span class="op">:</span>\allmapsoft\geid\downloader<span class="op">.</span><span class="fu">exe</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Quarto 렌더링 중에는 아래 chunk가 같은 실행을 수행한다. 이미 output이 있으면 다시 다운로드하지 않고 기존 결과를 사용한다.</p>
-<div id="4fc155a4" class="cell" data-execution_count="2">
+<div id="8a86b4b1" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> subprocess</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
@@ -387,7 +387,7 @@ bochum_zl16  bochum    Polygon</code></pre>
 </section>
 <section id="실행-결과-확인" class="level2" data-number="9.3">
 <h2 data-number="9.3" class="anchored" data-anchor-id="실행-결과-확인"><span class="header-section-number">9.3</span> 실행 결과 확인</h2>
-<div id="55165e08" class="cell" data-execution_count="3">
+<div id="97a52375" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>output_root <span class="op">=</span> project_dir <span class="op">/</span> <span class="st">"output"</span> <span class="op">/</span> <span class="st">"bochum"</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>patch_root <span class="op">=</span> output_root <span class="op">/</span> <span class="st">"patches_bochum_zl16"</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>date_dirs <span class="op">=</span> <span class="bu">sorted</span>([p <span class="cf">for</span> p <span class="kw">in</span> patch_root.iterdir() <span class="cf">if</span> p.is_dir()])</span>
@@ -417,7 +417,7 @@ bochum_zl16_Current_Default_Merged.tif</code></pre>
 <section id="동적-지도" class="level2" data-number="9.4">
 <h2 data-number="9.4" class="anchored" data-anchor-id="동적-지도"><span class="header-section-number">9.4</span> 동적 지도</h2>
 <p>아래 지도는 Bochum 예제의 실제 촬영일별 patch layer를 보여준다.</p>
-<div id="f2f22931" class="cell" data-execution_count="4">
+<div id="1811acac" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> folium</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> folium.raster_layers <span class="im">import</span> ImageOverlay</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> folium.plugins <span class="im">import</span> Fullscreen</span>
@@ -481,9 +481,9 @@ bochum_zl16_Current_Default_Merged.tif</code></pre>
 <span id="cb11-61"><a href="#cb11-61" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb11-62"><a href="#cb11-62" aria-hidden="true" tabindex="-1"></a>map_path <span class="op">=</span> output_root <span class="op">/</span> <span class="st">"bochum_actual_date_layers.html"</span></span>
 <span id="cb11-63"><a href="#cb11-63" aria-hidden="true" tabindex="-1"></a>m.save(map_path)</span>
-<span id="cb11-64"><a href="#cb11-64" aria-hidden="true" tabindex="-1"></a>display(HTML(<span class="ss">f'&lt;iframe src="../</span><span class="sc">{</span>map_path<span class="sc">.</span>as_posix()<span class="sc">}</span><span class="ss">" width="100%" height="650" style="border:1px solid #ddd;"&gt;&lt;/iframe&gt;'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb11-64"><a href="#cb11-64" aria-hidden="true" tabindex="-1"></a>display(HTML(<span class="ss">f'&lt;iframe src="</span><span class="sc">{</span>map_path<span class="sc">.</span>as_posix()<span class="sc">}</span><span class="ss">" width="100%" height="650" style="border:1px solid #ddd;"&gt;&lt;/iframe&gt;'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display">
-<iframe src="../example_project/output/bochum/bochum_actual_date_layers.html" width="100%" height="650" style="border:1px solid #ddd;"></iframe>
+<iframe src="example_project/output/bochum/bochum_actual_date_layers.html" width="100%" height="650" style="border:1px solid #ddd;"></iframe>
 </div>
 </div>
 
@@ -492,14 +492,23 @@ bochum_zl16_Current_Default_Merged.tif</code></pre>
 
 </main> <!-- /main -->
 <script>
+
 document.addEventListener("DOMContentLoaded", () => {
+
   document.querySelectorAll(".quarto-title-meta-heading").forEach((heading) => {
+
     if (heading.textContent.trim() === "Published") {
+
       heading.textContent = "Last modified";
+
     }
+
   });
+
 });
+
 </script>
+
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";
