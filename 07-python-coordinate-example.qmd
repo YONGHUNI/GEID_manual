@@ -440,7 +440,7 @@ m.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]])
 
 map_path = root / "putney_wandsworth_actual_date_layers.html"
 m.save(map_path)
-display(HTML(f'<iframe src="../{map_path.as_posix()}" width="100%" height="650" style="border:1px solid #ddd;"></iframe>'))
+display(HTML(f'<iframe src="{map_path.as_posix()}" width="100%" height="650" style="border:1px solid #ddd;"></iframe>'))
 ```
 
 샘플 patch 하나를 문서에 표시하면 다음과 같다.
