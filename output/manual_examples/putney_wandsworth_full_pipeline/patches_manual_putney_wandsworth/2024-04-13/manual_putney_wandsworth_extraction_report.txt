@@ -1,0 +1,25 @@
+==================================================
+Task Execution Time : 2026-07-09 14:42:05
+Task Identifier     : manual_putney_wandsworth_current_0
+Requested Target    : current
+Actual Capture Date : 2024-04-13
+Zoom Level          : 18
+Bounding Box (4326) : (np.float64(-0.235), np.float64(51.45), np.float64(-0.17), np.float64(51.4825))
+Total Patches Found : 13
+--------------------------------------------------
+[Original Log Entries]
+T299 ges_65473_84268_18.jpg: 2024-04-13 Ok
+T307 ges_65473_84276_18.jpg: 2024-04-13 Ok
+T312 ges_65474_84268_18.jpg: 2024-04-13 Ok
+T313 ges_65474_84269_18.jpg: 2024-04-13 Ok
+T314 ges_65474_84270_18.jpg: 2024-04-13 Ok
+T315 ges_65474_84271_18.jpg: 2024-04-13 Ok
+T316 ges_65474_84272_18.jpg: 2024-04-13 Ok
+T317 ges_65474_84273_18.jpg: 2024-04-13 Ok
+T318 ges_65474_84274_18.jpg: 2024-04-13 Ok
+T320 ges_65474_84276_18.jpg: 2024-04-13 Ok
+T321 ges_65474_84277_18.jpg: 2024-04-13 Ok
+T319 ges_65474_84275_18.jpg: 2024-04-13 Ok
+T322 ges_65474_84278_18.jpg: 2024-04-13 Ok
+
+
