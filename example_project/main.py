@@ -1,7 +1,26 @@
 import argparse
 import datetime
+import os
 from pathlib import Path
 
+# geopandas/shapely/pyproj를 import하기 전에 환경을 먼저 정리해야 한다.
+# pyproj는 import 시점에 PROJ_DATA를 캐싱하므로, geopandas import 이후에
+# 환경변수를 지워봤자 이미 늦다.
+
+# 시스템 gdal PATH 제거 (rasterio DLL 충돌 방지)
+gdal_paths = [r"C:\gdal\bin", r"C:\gdal\bin\ms\apps", r"C:\gdal\bin\proj9\apps",
+              r"C:\gdal\bin\gdal\apps", r"C:\gdal\bin\gdal\java"]
+path_list = os.environ["PATH"].split(";")
+path_list = [p for p in path_list if p not in gdal_paths]
+os.environ["PATH"] = ";".join(path_list)
+
+# PROJ_LIB / PROJ_DATA 충돌 제거 (시스템에 박힌 구버전 GDAL의 proj DB를 pyproj가 잡는 것 방지)
+os.environ.pop("PROJ_LIB", None)
+os.environ.pop("PROJ_DATA", None)
+import pyproj
+os.environ["PROJ_DATA"] = pyproj.datadir.get_data_dir()
+
+# 여기서부터 원래 import
 import geopandas as gpd
 from shapely.geometry import box
 
