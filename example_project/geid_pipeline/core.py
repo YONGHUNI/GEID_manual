@@ -136,9 +136,6 @@ class GEIDPipelineManager:
         task_completed = False
 
         while time.time() - start_time < timeout_sec:
-            if process.poll() is not None:
-                break
-                
             if os.path.exists(log_file_path):
                 try:
                     with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -147,6 +144,10 @@ class GEIDPipelineManager:
                             break
                 except PermissionError:
                     pass
+
+            if process.poll() is not None:
+                break
+
             time.sleep(2)
 
         try:
@@ -286,7 +287,10 @@ class GEIDPipelineManager:
                     if target_date.lower() != "current":
                         cmd.append(target_date)
 
-                    proc = subprocess.Popen(cmd)
+                    # GEID exe writes its project/log files relative to its cwd,
+                    # not the output-folder argument, so cwd must match temp_dir
+                    # or _wait_for_completion / _parse_log_and_relocate never find the log.
+                    proc = subprocess.Popen(cmd, cwd=temp_dir)
                     self._wait_for_completion(temp_dir, task_name, proc)
 
                     self._parse_log_and_relocate(
